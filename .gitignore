@@ -42,9 +42,9 @@ Thumbs.db
 ._*
 
 # Spring Boot
-application-local.properties
-application-dev.yml
-application-test.yml
+application-local.*
+application-dev.*
+application-test.*
 
 # Environment files
 .env
