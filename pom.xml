@@ -41,7 +41,7 @@
     <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
     <postgresql.version>42.6.0</postgresql.version>
     <mybatis-plus.version>3.5.15</mybatis-plus.version>
-    <org.projectlombok.version>1.18.38</org.projectlombok.version>
+    <org.projectlombok.version>1.18.46</org.projectlombok.version>
     <jjwt.version>0.13.0</jjwt.version>
     <springdoc.version>3.0.1</springdoc.version>
     <uuid-creator.version>6.1.1</uuid-creator.version>
