@@ -50,6 +50,7 @@ class OAuth2LogoutServiceImplTest {
                         .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                         .build())
                 .principalName("alice")
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 .build();
     }
 
