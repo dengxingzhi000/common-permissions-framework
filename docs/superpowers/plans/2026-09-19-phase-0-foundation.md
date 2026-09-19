@@ -30,6 +30,119 @@
 
 ---
 
+# Wave 0 — Prereq(必须先修)
+
+## Task 0.1: 修复 spring-cloud-alibaba 2025.0.0.0 与 Spring Boot 4 不兼容
+
+**问题**: `spring-cloud-alibaba 2025.0.0.0` 的 `META-INF/spring.factories` 用旧的 `org.springframework.boot.env.EnvironmentPostProcessor` 接口注册 `NacosConfigDataMissingEnvironmentPostProcessor`。Spring Boot 4 把该接口移到 `org.springframework.boot.EnvironmentPostProcessor`,导致 `SpringFactoriesLoader.isAssignable` 检查失败,**`system/service` 模块所有 `@SpringBootTest` / `@WebMvcTest` 启动时 `environmentPrepared` 阶段崩溃**,无法执行任何测试。
+
+**Files:**
+- Modify: `pom.xml` (可能修改 `spring-cloud-alibaba.version` 或加 exclusion)
+- Modify: 任何含 `nacos-config` 依赖的子模块 pom.xml
+
+- [ ] **Step 0.1.1: 列出当前所有 nacos 依赖**
+
+```bash
+grep -rn "nacos" --include="pom.xml" .
+```
+
+- [ ] **Step 0.1.2: 验证所有现有 test 已能跑通(基线)**
+
+```bash
+$mvn test -pl system/service -Dsurefire.failIfNoSpecifiedTests=false 2>&1 | tail -20
+```
+
+Expected: 全部测试因 Nacos issue 失败,确认问题。
+
+- [ ] **Step 0.1.3: 解法 A — 升级 spring-cloud-alibaba**
+
+检查 Maven Central / Aliyun 是否有兼容 Spring Boot 4 的版本(如 `2025.0.0.1+`):
+
+```bash
+& "$MAVEN_HOME/bin/mvn" versions:display-dependency-updates -Dincludes=com.alibaba.cloud:* 2>&1 | tail -30
+```
+
+若有 Boot 4 兼容版本,修改父 `pom.xml`:
+
+```xml
+<spring-cloud-alibaba.version>2025.0.0.1</spring-cloud-alibaba.version>
+```
+
+(具体版本号按实际查询结果)
+
+- [ ] **Step 0.1.4: 解法 B — 排除 offending class**
+
+若 A 没有可用版本,在所有引用 `spring-cloud-starter-alibaba-nacos-config` 的 pom 加:
+
+```xml
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+    <exclusions>
+        <exclusion>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
+(注:无法在同一 dep 内排除自己,正确做法见 Step 0.1.5)
+
+- [ ] **Step 0.1.5: 解法 C — 重写 spring.factories 排除**
+
+找到 `spring-cloud-alibaba-nacos-config` jar 里的 `META-INF/spring.factories` 文件,在测试 classpath 中提供覆盖:
+
+`common/integration/src/test/resources/META-INF/spring.factories`:
+
+```properties
+# 空文件覆盖 nacos-config 的注册
+```
+
+(仅在测试范围生效)
+
+- [ ] **Step 0.1.6: 解法 D — 应用层禁用 auto-config**
+
+在 `common/integration/src/main/resources/META-INF/spring.factories` 或 `application.yaml` 加:
+
+```yaml
+spring:
+  autoconfigure:
+    exclude:
+      - com.alibaba.cloud.nacos.configdata.NacosConfigDataMissingEnvironmentPostProcessor
+```
+
+或在 `@SpringBootApplication` 上:
+
+```java
+@SpringBootApplication(exclude = NacosConfigDataMissingEnvironmentPostProcessor.class)
+```
+
+- [ ] **Step 0.1.7: 重新跑 baseline**
+
+```bash
+$mvn test -pl system/service -Dsurefire.failIfNoSpecifiedTests=false 2>&1 | tail -10
+```
+
+Expected: 至少现有 `com.Demo` 测试能跑通。
+
+- [ ] **Step 0.1.8: 重跑 Task 1.1 的测试**
+
+```bash
+$mvn test -pl system/service -Dtest=SysPermissionControllerAuthorizationTest -Dsurefire.failIfNoSpecifiedTests=false 2>&1 | tail -20
+```
+
+Expected: 2 tests pass(403 + 200)。
+
+- [ ] **Step 0.1.9: Commit**
+
+```bash
+git add pom.xml system/service/pom.xml common/integration/src/test/resources/META-INF/spring.factories 2>/dev/null
+git commit -m "fix(deps): resolve Nacos EnvironmentPostProcessor incompatibility with Spring Boot 4"
+```
+
+---
+
 # Wave 1 — 基础清理
 
 ## Task 1.1: Item 0.3 — 锁定 `/find-by-url` 端点
