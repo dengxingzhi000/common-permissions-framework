@@ -1,0 +1,17 @@
+spring:
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+
+dubbo:
+  application:
+    name: system-service-test
+  registry:
+    address:
+  protocol:
+    name: dubbo
+    port: -1
+  config-center: nop

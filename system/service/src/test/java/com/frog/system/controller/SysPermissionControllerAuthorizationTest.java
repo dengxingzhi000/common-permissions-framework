@@ -10,6 +10,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.frog.system.service.ISysPermissionService;
+import com.frog.system.service.ISysUserService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +21,7 @@ class SysPermissionControllerAuthorizationTest {
 
     @Autowired MockMvc mvc;
     @MockitoBean ISysPermissionService permissionService;
+    @MockitoBean ISysUserService sysUserService;
 
     @Test
     @WithMockUser(authorities = {"system:user:list"})
