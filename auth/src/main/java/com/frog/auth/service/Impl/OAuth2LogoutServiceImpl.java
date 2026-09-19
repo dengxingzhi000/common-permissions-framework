@@ -6,6 +6,7 @@ import com.frog.common.log.service.ISysAuditLogService;
 import com.frog.common.security.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
@@ -21,6 +22,7 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
     private final OAuth2AuthorizationService authorizationService;
     private final JwtUtils jwtUtils;
     private final ISysAuditLogService auditLogService;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public void revokeByClient(String accessToken, String clientId, UUID callerUserId) {
@@ -44,6 +46,26 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
 
     @Override
     public int revokeGlobal(UUID targetUserId, String reason, String callerUsername) {
-        return 0;
+        String key = "oauth2:user:auths:" + targetUserId;
+        java.util.Set<String> authIds = redisTemplate.opsForSet().members(key);
+        if (authIds == null || authIds.isEmpty()) {
+            auditLogService.recordLogout(targetUserId, "OAuth2 全局登出(无授权): reason=" + reason);
+            log.info("OAuth2 global revocation: userId={} (no authorizations)", targetUserId);
+            return 0;
+        }
+        int removed = 0;
+        for (String authId : authIds) {
+            OAuth2Authorization auth = authorizationService.findById(authId);
+            if (auth != null) {
+                authorizationService.remove(auth);
+                removed++;
+            }
+        }
+        redisTemplate.delete(key);
+        auditLogService.recordLogout(targetUserId,
+                String.format("OAuth2 全局登出: count=%d, reason=%s, operator=%s",
+                        removed, reason, callerUsername));
+        log.info("OAuth2 global revocation: userId={} count={} operator={}", targetUserId, removed, callerUsername);
+        return removed;
     }
 }
