@@ -49,7 +49,7 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
         String key = "oauth2:user:auths:" + targetUserId;
         java.util.Set<String> authIds = redisTemplate.opsForSet().members(key);
         if (authIds == null || authIds.isEmpty()) {
-            auditLogService.recordLogout(targetUserId, "OAuth2 全局登出(无授权): reason=" + reason);
+            auditLogService.recordLogout(targetUserId, "OAuth2 全局登出查询(无授权): operator=" + callerUsername);
             log.info("OAuth2 global revocation: userId={} (no authorizations)", targetUserId);
             return 0;
         }
@@ -63,8 +63,7 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
         }
         redisTemplate.delete(key);
         auditLogService.recordLogout(targetUserId,
-                String.format("OAuth2 全局登出: count=%d, reason=%s, operator=%s",
-                        removed, reason, callerUsername));
+                "OAuth2 全局登出: count=" + removed + ", reason=" + reason + ", operator=" + callerUsername);
         log.info("OAuth2 global revocation: userId={} count={} operator={}", targetUserId, removed, callerUsername);
         return removed;
     }
