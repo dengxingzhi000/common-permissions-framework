@@ -1,7 +1,8 @@
 package com.frog.common.log.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.frog.common.log.entity.SysAuditLog;
+import com.frog.common.data.audit.SysAuditLogPO;
+import com.frog.common.security.audit.SysAuditLog;
 
 import java.util.UUID;
 
@@ -13,7 +14,7 @@ import java.util.UUID;
  * @author author
  * @since 2025-10-14
  */
-public interface ISysAuditLogService extends IService<SysAuditLog> {
+public interface ISysAuditLogService extends IService<SysAuditLogPO> {
 
     /**
      * 记录用户登录操作日志

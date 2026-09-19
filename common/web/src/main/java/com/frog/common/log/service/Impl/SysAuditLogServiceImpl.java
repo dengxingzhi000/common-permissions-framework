@@ -1,11 +1,13 @@
 package com.frog.common.log.service.Impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.frog.common.log.entity.SysAuditLog;
-import com.frog.common.log.mapper.SysAuditLogMapper;
+import com.frog.common.data.audit.SysAuditLogMapper;
+import com.frog.common.data.audit.SysAuditLogPO;
+import com.frog.common.security.audit.SysAuditLog;
 import com.frog.common.log.service.ISysAuditLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -23,10 +25,16 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SysAuditLogServiceImpl extends ServiceImpl<SysAuditLogMapper, SysAuditLog>
+public class SysAuditLogServiceImpl extends ServiceImpl<SysAuditLogMapper, SysAuditLogPO>
         implements ISysAuditLogService {
 
     private final SysAuditLogMapper sysAuditLogMapper;
+
+    private void insertFromPojo(SysAuditLog source) {
+        SysAuditLogPO po = new SysAuditLogPO();
+        BeanUtils.copyProperties(source, po);
+        sysAuditLogMapper.insert(po);
+    }
 
     @Async
     public void recordLogin(UUID userId, String username, String ipAddress,
@@ -40,7 +48,7 @@ public class SysAuditLogServiceImpl extends ServiceImpl<SysAuditLogMapper, SysAu
                 .operationDesc(remark)
                 .createTime(LocalDateTime.now())
                 .build();
-        sysAuditLogMapper.insert(log);
+        insertFromPojo(log);
     }
 
     @Async
@@ -53,7 +61,7 @@ public class SysAuditLogServiceImpl extends ServiceImpl<SysAuditLogMapper, SysAu
                 .errorMsg(reason)
                 .createTime(LocalDateTime.now())
                 .build();
-        sysAuditLogMapper.insert(log);
+        insertFromPojo(log);
     }
 
     @Async
@@ -65,7 +73,7 @@ public class SysAuditLogServiceImpl extends ServiceImpl<SysAuditLogMapper, SysAu
                 .operationDesc(remark)
                 .createTime(LocalDateTime.now())
                 .build();
-        sysAuditLogMapper.insert(log);
+        insertFromPojo(log);
     }
 
     /**
@@ -88,10 +96,10 @@ public class SysAuditLogServiceImpl extends ServiceImpl<SysAuditLogMapper, SysAu
                     .createTime(LocalDateTime.now())
                     .build();
 
-            sysAuditLogMapper.insert(log);
+            insertFromPojo(log);
 
             // 高风险事件立即告警
-            if (riskLevel >= 4) {
+            if (riskLevel != null && riskLevel >= 4) {
                 sendAlert(log);
             }
         } catch (Exception e) {

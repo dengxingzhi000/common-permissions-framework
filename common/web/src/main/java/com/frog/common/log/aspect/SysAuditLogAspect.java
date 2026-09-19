@@ -1,19 +1,22 @@
 package com.frog.common.log.aspect;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.frog.common.data.audit.SysAuditLogMapper;
+import com.frog.common.data.audit.SysAuditLogPO;
 import com.frog.common.log.annotation.AuditLog;
-import com.frog.common.log.entity.SysAuditLog;
-import com.frog.common.log.mapper.SysAuditLogMapper;
+import com.frog.common.security.audit.SysAuditLog;
 import com.frog.common.security.util.DesensitizeUtils;
 import com.frog.common.security.util.IpUtils;
 import com.frog.common.web.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -32,8 +35,11 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Slf4j
 public class SysAuditLogAspect {
+
     private final SysAuditLogMapper sysAuditLogMapper;
-    private final ObjectMapper objectMapper;
+
+    @Setter
+    private ObjectMapper objectMapper;
 
     @Around("@annotation(com.frog.common.log.annotation.AuditLog)")
     public Object around(ProceedingJoinPoint point) throws Throwable {
@@ -49,7 +55,6 @@ public class SysAuditLogAspect {
         HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
 
         SysAuditLog auditLog = SysAuditLog.builder()
-
                 .userId(SecurityUtils.getCurrentUserUuid().orElse(null))
                 .username(SecurityUtils.getCurrentUsername().orElse(null))
                 .operationType(annotation.businessType())
@@ -104,7 +109,9 @@ public class SysAuditLogAspect {
 
             // 异步保存日志
             try {
-                sysAuditLogMapper.insert(auditLog);
+                SysAuditLogPO po = new SysAuditLogPO();
+                BeanUtils.copyProperties(auditLog, po);
+                sysAuditLogMapper.insert(po);
             } catch (Exception e) {
                 log.error("Failed to save audit log", e);
             }
