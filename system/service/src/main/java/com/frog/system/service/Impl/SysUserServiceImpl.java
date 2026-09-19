@@ -3,6 +3,7 @@ package com.frog.system.service.Impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.frog.common.config.SysConfigService;
 import com.frog.common.data.rw.annotation.Slave;
 import com.frog.common.response.ResultCode;
 import com.frog.common.util.UUIDv7Util;
@@ -51,6 +52,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final CrossDatabaseQueryService crossDbService;
     private final PasswordEncoder passwordEncoder;
     private final DataSyncEventPublisher dataSyncEventPublisher;
+    private final SysConfigService sysConfigService;
 
     @Value("${spring.security.default-password}")
     private String defaultPassword;
@@ -292,7 +294,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new BusinessException(ResultCode.USER_NOT_FOUND.getCode(), ResultCode.USER_NOT_FOUND.getMessage());
         }
 
-        if (user.getId().equals(UUID.fromString("019a0aee-3b74-7bfc-b34f-48b5428d4875"))) {
+        UUID superAdminId = sysConfigService.getUuid("super_admin_user_id");
+        if (superAdminId != null && user.getId().equals(superAdminId)) {
             throw new BusinessException(ResultCode.USER_CANNOT_DELETE_ADMIN.getCode(),
                     ResultCode.USER_CANNOT_DELETE_ADMIN.getMessage());
         }

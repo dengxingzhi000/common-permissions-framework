@@ -2,6 +2,7 @@ package com.frog.system.service.Impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.frog.common.config.SysConfigService;
 import com.frog.common.exception.BusinessException;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.frog.common.dto.role.RoleDTO;
@@ -40,6 +41,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysRoleDeptMapper roleDeptMapper;
     private final SysRoleDataRuleMapper roleDataRuleMapper;
+    private final SysConfigService sysConfigService;
 
     /**
      * 分页查询角色列表
@@ -154,7 +156,8 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         }
 
         // 不能修改超级管理员角色
-        if (existRole.getId().equals(UUID.fromString("019a0aee-3b74-7bfc-b34f-48b5428d4875"))) {
+        UUID superAdminRoleId = sysConfigService.getUuid("super_admin_role_id");
+        if (superAdminRoleId != null && existRole.getId().equals(superAdminRoleId)) {
             throw new BusinessException("不能修改超级管理员角色");
         }
 
@@ -192,7 +195,8 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         }
 
         // 不能删除超级管理员角色
-        if (role.getId().equals(UUID.fromString("019a0aee-3b74-7bfc-b34f-48b5428d4875"))) {
+        UUID superAdminRoleId = sysConfigService.getUuid("super_admin_role_id");
+        if (superAdminRoleId != null && role.getId().equals(superAdminRoleId)) {
             throw new BusinessException("不能删除超级管理员角色");
         }
 
