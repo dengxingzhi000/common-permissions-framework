@@ -72,6 +72,17 @@ spring:
           username: ${DB_USERNAME:admin}
           password: ${DB_PASSWORD:123456}
 
+  # ========== Flyway ==========
+  # Only enabled for the permission datasource (db_permission).
+  # Explicit URL/user/password bypass baomidou dynamic-datasource routing for Flyway's own connection.
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://${DB_HOST:192.168.18.134}:5432/db_permission
+    user: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:123456}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
     # ========== 读写分离（主从） ==========
     # 开启后将通过 common/data 的 ReadWriteRoutingDataSource 在每个库内做 master/slave 路由，
     # 仍由 dynamic-datasource 负责在 user/org/permission/... 这些库之间选择（@DS）。
