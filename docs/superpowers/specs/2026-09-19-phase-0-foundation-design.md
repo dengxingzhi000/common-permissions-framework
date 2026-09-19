@@ -257,9 +257,13 @@ Wave 4 (收尾)
        UNIQUE (config_key, tenant_id),
        CHECK (scope IN ('GLOBAL', 'TENANT'))
    );
+   -- 初始数据:迁移 3 处硬编码 UUID
+   -- 注:role 与 user 在 legacy 代码里使用了同一个 UUID (019a0aee-...),
+   --     这是已存在的数据缺陷;真实角色 ID 需在迁移前从 db_permission.sys_role
+   --     查询得出后回填,此处仅占位。PR 实施时务必 SELECT 出真实 role_id 再写死。
    INSERT INTO sys_config (config_key, config_value, description) VALUES
-       ('super_admin_user_id', '019a0aee-3b74-7bfc-b34f-48b5428d4875', 'Built-in super admin user UUID (legacy)'),
-       ('super_admin_role_id', '019a0aee-3b74-7bfc-b34f-48b5428d4875', 'Built-in super admin role UUID (legacy)');
+       ('super_admin_user_id', '<FILL_FROM_DB_AT_MIGRATION_TIME>', 'Built-in super admin user UUID (legacy)'),
+       ('super_admin_role_id', '<FILL_FROM_DB_AT_MIGRATION_TIME>', 'Built-in super admin role UUID (legacy)');
    ```
 
 2. **新增** `common/data/src/main/java/com/frog/common/config/SysConfigService.java`
@@ -337,21 +341,22 @@ Wave 4 (收尾)
 1. **核实** 现有两类的实际使用情况
    - 全文 grep `SysAuditLog`(类名)+ `sys_audit_log`(表名) 找出所有写入点
 
-2. **统一为** `system/service/.../domain/entity/SysAuditLog.java`(因为它已经在 `db_audit` schema,并且表有 UUID PK)
-   - 删除 `common/web/.../entity/SysAuditLog.java`
-   - `@TableId(type=IdType.ASSIGN_UUID)`, 复合主键用 `@TableId(value="id", type=IdType.ASSIGN_UUID)` + `@TableField("create_time")` 处理
+2. **统一实体位置**:`common/security-api/src/main/java/com/frog/common/security/audit/SysAuditLog.java`
+   - **纯 POJO**,无 MyBatis-Plus 注解(`common/security-api` 必须保持无 Spring 依赖)
+   - `@TableId` 注解迁移到 `common/data/src/main/java/com/frog/common/data/audit/SysAuditLogPO.java`
+   - 删除 `common/web/.../entity/SysAuditLog.java`(它带 MyBatis-Plus 注解且 ID 类型错误)
 
-3. **修改** `common/web/.../log/entity/SysAuditLog.java` 删除,所有 import 改到 `system/service/.../domain/entity/SysAuditLog.java`
-   - **依赖反转**: `common/web` 不能依赖 `system/service`,需要把 entity 移到 `common/security-api`(无 Spring 依赖)
+3. **统一 Mapper**:`common/data/src/main/java/com/frog/common/data/audit/SysAuditLogMapper.java`
+   - 所有写入路径(原 `SysAuditLogAspect`、业务 service)改用此 mapper
 
-4. **新增实体位置**: `common/security-api/.../entity/SysAuditLog.java`(纯 POJO,无 MyBatis-Plus 注解)
-   - `common/data` 提供 `SysAuditLogPO`(MyBatis-Plus 注解)
-   - `system/service` 提供 mapper 与转换
+4. **修改** `common/web/src/main/java/com/frog/common/log/aspect/SysAuditLogAspect.java`
+   - 注入新 mapper,移除对 `SysAuditLog` 错误类的引用
 
-5. **修改** `common/web/src/main/java/com/frog/common/log/aspect/SysAuditLogAspect.java`
-   - 写入路径用 `common/data` 的 mapper
+5. **检查并修复** `sys_audit_log` 表 PK 定义
+   - 当前 `005_db_audit.sql:45-46` 用 `PRIMARY KEY (id, create_time)`,与 entity 的 `IdType.AUTO` 不一致
+   - 实体 `@TableId` 改为 `IdType.ASSIGN_UUID`;`create_time` 用 `@TableField(exist=false)` 标识为分区键
 
-6. **新增 Flyway**(如必要) `V20260920_04__fix_audit_log_pk.sql` — 确认 `sys_audit_log` PK 实际定义,与 entity 注解一致
+6. **新增 Flyway**(如必要) `V20260920_04__fix_audit_log_pk.sql` — 仅当现有 PK 定义需要修正时(需执行前手动核对 `db_audit.sys_audit_log` 实际约束)
 
 **数据库**: 可能 PK 调整;**写入路径统一**。
 
@@ -532,6 +537,8 @@ Wave 4 (收尾)
    - 查询参数: `subject_id`, `action`, `effect`, `from`, `to`,分页
 
 7. **新增** Nacos 配置 `observability.decision-log.batch-size=100`, `flush-interval=1000ms`
+
+   **subject_type 字段说明**:Phase 0 仅使用 `user`;`service_account` 预留,Phase 1 引入 ServiceAccount 后启用。
 
 **数据库**: 新表 `sys_decision_log`,按月分区。
 
