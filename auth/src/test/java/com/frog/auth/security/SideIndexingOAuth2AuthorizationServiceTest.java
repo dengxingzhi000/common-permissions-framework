@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -94,6 +95,23 @@ class SideIndexingOAuth2AuthorizationServiceTest {
         verify(setOps).remove("oauth2:user:auths:" + userId, "auth-1");
         verify(setOps).size("oauth2:user:auths:" + userId);
         verify(redisTemplate).delete("oauth2:user:auths:" + userId);
+    }
+
+    @Test
+    void remove_withMembersRemaining_keepsIndexKey() {
+        OAuth2Authorization auth = authWithAccessToken("auth-1", "jwt.token.value");
+        when(jwtUtils.getUserIdFromToken("jwt.token.value")).thenReturn(userId);
+        @SuppressWarnings("unchecked")
+        SetOperations<String, String> setOps = mock(SetOperations.class);
+        when(redisTemplate.opsForSet()).thenReturn(setOps);
+        when(setOps.size("oauth2:user:auths:" + userId)).thenReturn(1L);
+
+        service.remove(auth);
+
+        verify(delegate).remove(auth);
+        verify(setOps).remove("oauth2:user:auths:" + userId, "auth-1");
+        verify(setOps).size("oauth2:user:auths:" + userId);
+        verify(redisTemplate, never()).delete(anyString());
     }
 
     @Test
