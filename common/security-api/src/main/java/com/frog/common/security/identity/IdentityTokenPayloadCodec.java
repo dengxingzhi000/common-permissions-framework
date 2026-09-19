@@ -1,6 +1,7 @@
 package com.frog.common.security.identity;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -23,7 +24,8 @@ import java.util.Base64;
  * </ul>
  */
 public final class IdentityTokenPayloadCodec {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private IdentityTokenPayloadCodec() {}
 
     public static String encode(IdentityTokenPayload p) {

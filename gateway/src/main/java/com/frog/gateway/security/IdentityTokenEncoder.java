@@ -7,11 +7,16 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Map;
 
 /**
  * Signs identity payloads for downstream verification.
  * 对用于下游验证的身份信息载荷进行签名。
+ *
+ * <p>Wire format: {@code base64url(jsonPayload) + "." + hex(HmacSHA256(secret, base64url(jsonPayload)))}.
+ * This format matches {@link com.frog.common.security.identity.IdentityTokenVerifier}
+ * (P0-3 closure requires the gateway's signed tokens to be verifiable by the backend).
  */
 public record IdentityTokenEncoder(byte[] secret) {
     private static final Base64.Encoder BASE64 = Base64.getUrlEncoder().withoutPadding();
@@ -35,7 +40,7 @@ public record IdentityTokenEncoder(byte[] secret) {
         String jsonPayload = JSON.toJSONString(payload);
         String encodedPayload = BASE64.encodeToString(jsonPayload.getBytes(StandardCharsets.UTF_8));
         byte[] signatureBytes = sign(encodedPayload.getBytes(StandardCharsets.UTF_8));
-        String signature = BASE64.encodeToString(signatureBytes);
+        String signature = HexFormat.of().formatHex(signatureBytes);
         return encodedPayload + "." + signature;
     }
 

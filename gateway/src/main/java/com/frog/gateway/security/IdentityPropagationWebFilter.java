@@ -1,5 +1,6 @@
 package com.frog.gateway.security;
 
+import com.frog.common.util.UUIDv7Util;
 import com.frog.gateway.properties.IdentityPropagationProperties;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -76,6 +77,7 @@ public class IdentityPropagationWebFilter implements WebFilter, Ordered {
         payload.put("deviceId", deviceId);
         payload.put("authorities", authorities);
         payload.put("issuedAt", Instant.now().getEpochSecond());
+        payload.put("jti", UUIDv7Util.generate().toString());
 
         String identityToken = tokenEncoder.encode(payload);
 
