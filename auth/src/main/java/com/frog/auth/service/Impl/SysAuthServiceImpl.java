@@ -1,6 +1,7 @@
 package com.frog.auth.service.Impl;
 
 import com.frog.common.feign.client.SysUserServiceClient;
+import org.apache.dubbo.config.annotation.DubboReference;
 import com.frog.system.api.UserDubboService;
 import com.frog.common.metrics.BusinessMetrics;
 import com.frog.common.web.domain.SecurityUser;
@@ -51,6 +52,7 @@ public class SysAuthServiceImpl implements ISysAuthService {
     private final JwtProperties jwtProperties;
     private final BusinessMetrics businessMetrics;
     private final TotpUtils totpUtils;
+    @DubboReference(version = "1.0.0", check = true, timeout = 3000)
     private final UserDubboService userDubboService;
 
     private static final String LOGIN_ATTEMPTS_PREFIX = "login:attempts:";

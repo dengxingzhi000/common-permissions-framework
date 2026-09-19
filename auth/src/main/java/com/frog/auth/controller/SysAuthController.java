@@ -14,6 +14,7 @@ import com.frog.common.security.util.IpUtils;
 import com.frog.common.sentinel.annotation.RateLimit;
 import com.frog.common.util.UUIDv7Util;
 import com.frog.common.web.util.SecurityUtils;
+import org.apache.dubbo.config.annotation.DubboReference;
 import com.frog.system.api.UserDubboService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -58,6 +59,7 @@ public class SysAuthController {
     private final ISysAuthService authService;
     private final SysUserServiceClient userServiceClient;
     private final HttpServletRequestUtils httpServletRequestUtils;
+    @DubboReference(version = "1.0.0", check = true, timeout = 3000)
     private final UserDubboService userDubboService;
 
     /**

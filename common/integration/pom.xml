@@ -85,6 +85,14 @@
             <artifactId>spring-integration-core</artifactId>
         </dependency>
 
+        <!-- Dubbo annotations & Filter API (provided; services bring dubbo-spring-boot-starter at runtime) -->
+        <dependency>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo</artifactId>
+            <version>3.2.10</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- test dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
