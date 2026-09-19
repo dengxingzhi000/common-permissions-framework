@@ -161,9 +161,11 @@ public class SysPermissionController {
      * 对应 Dubbo: PermissionDubboService.findPermissionsByUrl
      */
     @GetMapping("/find-by-url")
+    @PreAuthorize("hasAnyAuthority('system:permission:query', 'system:admin')")
     @Operation(summary = "根据 URL查询权限", description = "根据API路径和HTTP方法查询所需权限标识符（用于动态权限校验）")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "查询成功")
+            @ApiResponse(responseCode = "200", description = "查询成功"),
+            @ApiResponse(responseCode = "403", description = "无权限访问")
     })
     public List<String> findPermissionsByUrl(
             @Parameter(description = "API 路径", required = true, example = "/api/system/users") @RequestParam("url") String url,
