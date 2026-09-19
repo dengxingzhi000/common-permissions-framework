@@ -1,11 +1,14 @@
 package com.frog.common.security.config;
 
+import com.frog.common.security.filter.IdentityTokenVerificationFilter;
 import com.frog.common.security.filter.JwtAuthenticationFilter;
 import com.frog.common.security.filter.SqlInjectionFilter;
 import com.frog.common.security.handler.JwtAccessDeniedHandler;
 import com.frog.common.security.handler.JwtAuthenticationEntryPoint;
+import com.frog.common.security.identity.IdentityTokenProperties;
 import com.frog.common.security.stepup.StepUpFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -42,6 +45,7 @@ import java.util.List;
         securedEnabled = true,
         jsr250Enabled = true
 )
+@EnableConfigurationProperties(IdentityTokenProperties.class)
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -50,6 +54,7 @@ public class SecurityConfig {
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final StepUpFilter stepUpFilter;
     private final SecurityHeadersProperties securityHeadersProperties;
+    private final IdentityTokenVerificationFilter identityTokenVerificationFilter;
 
     /**
      * Spring Security 主过滤器链
@@ -139,6 +144,7 @@ public class SecurityConfig {
                 .authenticationManager(authenticationManager)
 
                 // 8️⃣ 添加自定义过滤器
+                .addFilterBefore(identityTokenVerificationFilter, LogoutFilter.class)
                 .addFilterBefore(sqlInjectionFilter, LogoutFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(stepUpFilter, JwtAuthenticationFilter.class);

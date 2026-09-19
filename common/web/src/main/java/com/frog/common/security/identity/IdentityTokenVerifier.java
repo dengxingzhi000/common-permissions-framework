@@ -2,6 +2,7 @@ package com.frog.common.security.identity;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -33,6 +34,7 @@ import java.util.HexFormat;
  * reserved for a follow-up Wave where role-level checks are added.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class IdentityTokenVerifier {
 
