@@ -31,10 +31,23 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Jackson for IdentityTokenPayloadCodec (Task 2.1, P0-3) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
         <!-- NO Spring dependencies -->
         <!-- NO Database dependencies -->
         <!-- NO Redis dependencies -->
         <!-- This module should be ULTRA lightweight -->
+
+        <!-- test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
