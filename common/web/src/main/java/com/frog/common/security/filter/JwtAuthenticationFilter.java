@@ -1,6 +1,9 @@
 package com.frog.common.security.filter;
 
+import com.frog.common.security.decision.DecisionEvent;
+import com.frog.common.security.decision.DecisionRecorder;
 import com.frog.common.security.metrics.SecurityMetrics;
+import com.frog.common.security.revocation.UserRevocationService;
 import com.frog.common.security.util.HttpServletRequestUtils;
 import com.frog.common.security.util.IpUtils;
 import com.frog.common.security.util.JwtUtils;
@@ -22,6 +25,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +45,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
     private final HttpServletRequestUtils httpServletRequestUtils;
     private final SecurityMetrics securityMetrics;
+    private final DecisionRecorder decisionRecorder;
+    private final UserRevocationService userRevocationService;
 
     @Override
     protected void doFilterInternal(@Nonnull HttpServletRequest request,
@@ -58,6 +65,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (jwtUtils.validateToken(token, currentIp, currentDeviceId)) {
                     // 提取用户信息
                     UUID userId = jwtUtils.getUserIdFromToken(token);
+
+                    // 撤销检查:token 的 iat 必须 >= 当前设备版本
+                    long tokenIat = jwtUtils.getIssuedAtFromToken(token);
+                    long currentVersion = userRevocationService
+                            .getCurrentVersion(userId, currentDeviceId);
+                    if (tokenIat < currentVersion) {
+                        securityMetrics.increment("security.jwt.revoked");
+                        decisionRecorder.record(new DecisionEvent(
+                                UUID.randomUUID(), "user", userId, "auth.token",
+                                null, null, Map.of(
+                                        "iat", tokenIat,
+                                        "version", currentVersion,
+                                        "deviceId", currentDeviceId == null ? "" : currentDeviceId),
+                                "deny", "TOKEN_REVOKED",
+                                null, request.getHeader("X-Request-ID"),
+                                0L, "common-web", Instant.now()));
+                        SecurityErrorResponseWriter.write(request, response,
+                                HttpServletResponse.SC_UNAUTHORIZED,
+                                "TOKEN_REVOKED",
+                                "Token revoked");
+                        return;
+                    }
+
                     String username = jwtUtils.getUsernameFromToken(token);
                     Set<String> permissions = jwtUtils.getPermissionsFromToken(token);
                     Set<String> roles = jwtUtils.getRolesFromToken(token);
@@ -92,6 +122,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             request.getHeader("X-Request-ID"), userId, username);
                 } else {
                     securityMetrics.increment("security.jwt.invalid");
+                    decisionRecorder.record(new DecisionEvent(
+                            UUID.randomUUID(), "user", null, "auth.token",
+                            null, null, Map.of("ip", currentIp),
+                            "deny", "INVALID_TOKEN",
+                            null, request.getHeader("X-Request-ID"),
+                            0L, "common-web", Instant.now()));
                     SecurityErrorResponseWriter.write(request, response,
                             HttpServletResponse.SC_UNAUTHORIZED,
                             "INVALID_TOKEN",
@@ -102,6 +138,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             securityMetrics.increment("security.jwt.errors");
             log.error("Cannot set user authentication traceId={}", request.getHeader("X-Request-ID"), e);
+            decisionRecorder.record(new DecisionEvent(
+                    UUID.randomUUID(), "user", null, "auth.token",
+                    null, null, Map.of("error", String.valueOf(e.getMessage())),
+                    "deny", "AUTH_ERROR",
+                    null, request.getHeader("X-Request-ID"),
+                    0L, "common-web", Instant.now()));
             SecurityErrorResponseWriter.write(request, response,
                     HttpServletResponse.SC_UNAUTHORIZED,
                     "AUTH_ERROR",

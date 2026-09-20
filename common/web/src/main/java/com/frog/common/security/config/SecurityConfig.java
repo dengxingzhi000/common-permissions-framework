@@ -1,5 +1,6 @@
 package com.frog.common.security.config;
 
+import com.frog.common.security.decision.DecisionRecorderProperties;
 import com.frog.common.security.filter.IdentityTokenVerificationFilter;
 import com.frog.common.security.filter.JwtAuthenticationFilter;
 import com.frog.common.security.filter.SqlInjectionFilter;
@@ -45,7 +46,7 @@ import java.util.List;
         securedEnabled = true,
         jsr250Enabled = true
 )
-@EnableConfigurationProperties(IdentityTokenProperties.class)
+@EnableConfigurationProperties({IdentityTokenProperties.class, DecisionRecorderProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

@@ -1,5 +1,7 @@
 package com.frog.system.evaluator;
 
+import com.frog.common.security.decision.DecisionEvent;
+import com.frog.common.security.decision.DecisionRecorder;
 import com.frog.common.web.domain.SecurityUser;
 import com.frog.system.service.ISysPermissionService;
 import com.frog.system.service.ISysUserPermissionService;
@@ -11,6 +13,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 自定义权限评估器
@@ -25,6 +30,7 @@ import java.io.Serializable;
 public class CustomPermissionEvaluator implements PermissionEvaluator {
     private final ISysPermissionService permissionService;
     private final ISysUserPermissionService userPermissionService;
+    private final DecisionRecorder decisionRecorder;
 
     /**
      * 判断用户是否有指定权限。
@@ -38,14 +44,23 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         }
 
         String permissionCode = permission.toString();
+        long start = System.currentTimeMillis();
         boolean viaRole = permissionService.hasPermission(user.getUserId(), permissionCode);
         boolean viaDirect = userPermissionService.findEffectiveCodes(user.getUserId())
                 .contains(permissionCode);
+        boolean allowed = viaRole || viaDirect;
+        long latencyMs = System.currentTimeMillis() - start;
 
         log.debug("Permission check - User: {}, Permission: {}, viaRole={}, viaDirect={}",
                 user.getUsername(), permissionCode, viaRole, viaDirect);
 
-        return viaRole || viaDirect;
+        decisionRecorder.record(new DecisionEvent(
+                UUID.randomUUID(), "user", user.getUserId(), permissionCode,
+                null, null, Map.of("viaRole", viaRole, "viaDirect", viaDirect),
+                allowed ? "allow" : "deny", null, null, null,
+                latencyMs, "system-service", Instant.now()));
+
+        return allowed;
     }
 
     /**

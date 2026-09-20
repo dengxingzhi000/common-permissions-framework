@@ -4,6 +4,8 @@ import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.frog.common.log.service.ISysAuditLogService;
+import com.frog.common.security.decision.DecisionEvent;
+import com.frog.common.security.decision.DecisionRecorder;
 import com.frog.common.security.metrics.SecurityMetrics;
 import com.frog.common.security.util.FilterBypassHelper;
 import com.frog.common.security.util.HttpServletRequestUtils;
@@ -22,7 +24,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -44,6 +48,7 @@ public class StepUpFilter extends OncePerRequestFilter {
     private final HttpServletRequestUtils requestUtils;
     private final SecurityMetrics securityMetrics;
     private final StepUpProperties properties;
+    private final DecisionRecorder decisionRecorder;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -117,6 +122,14 @@ public class StepUpFilter extends OncePerRequestFilter {
                     "STEP_UP_REQUIRED",
                     "Step-up required: " + require);
             securityMetrics.increment("security.stepup.required");
+
+            UUID userIdForDecision = user != null ? user.getUserId() : null;
+            decisionRecorder.record(new DecisionEvent(
+                    UUID.randomUUID(), "user", userIdForDecision, "auth.stepup",
+                    null, null, Map.of("required", require),
+                    "deny", "STEP_UP_REQUIRED",
+                    null, request.getHeader("X-Request-ID"),
+                    0L, "common-web", Instant.now()));
 
             if (user != null) {
                 UUID userId = user.getUserId();
