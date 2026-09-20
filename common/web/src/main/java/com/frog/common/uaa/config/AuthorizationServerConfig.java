@@ -1,6 +1,8 @@
 package com.frog.common.uaa.config;
 
+import com.frog.common.uaa.TenantRegisteredClientRepository;
 import com.frog.common.web.domain.SecurityUser;
+import com.frog.system.api.ISysRegisteredClientService;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -12,25 +14,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
-import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.security.oauth2.core.oidc.OidcScopes;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
-import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
-import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -39,12 +41,12 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import java.io.InputStream;
 import java.security.Key;
-import java.security.KeyStore;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.time.Duration;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.UUID;
 
 /**
@@ -85,7 +87,7 @@ public class AuthorizationServerConfig {
 				.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 				.csrf(csrf -> csrf.ignoringRequestMatchers(authorizationServerConfigurer.getEndpointsMatcher()))
 				.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
-				.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+				.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
 		// 启用 OIDC 支持
 		authorizationServerConfigurer.oidc(Customizer.withDefaults());
@@ -112,70 +114,17 @@ public class AuthorizationServerConfig {
     }
 
     /**
-     * 注册客户端
+     * 注册客户端 — DB-backed(Phase 1.4)。
+     *
+     * <p>替代原先的 InMemoryRegisteredClientRepository,客户端配置存储在
+     * {@code sys_registered_client} 表中,通过 {@link ISysRegisteredClientService}
+     * 加载。每个租户可注册独立 OAuth2 客户端。
      */
     @Bean
-    public RegisteredClientRepository registeredClientRepository() {
-        // Web 客户端
-        RegisteredClient webClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("nearsync-web")
-                .clientSecret(passwordEncoder().encode("web-secret-2024"))
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                .redirectUri("http://localhost:3000/callback")
-                .redirectUri("http://localhost:3000/authorized")
-                .scope(OidcScopes.OPENID)
-                .scope(OidcScopes.PROFILE)
-                .scope("user.read")
-                .scope("user.write")
-                .scope("system.admin")
-                .tokenSettings(TokenSettings.builder()
-                        .accessTokenTimeToLive(Duration.ofHours(2))
-                        .refreshTokenTimeToLive(Duration.ofDays(7))
-                        .reuseRefreshTokens(false)
-                        .build())
-                .clientSettings(ClientSettings.builder()
-                        .requireAuthorizationConsent(false)
-                        .requireProofKey(false)
-                        .build())
-                .build();
-
-        // 移动客户端（使用PKCE）
-        RegisteredClient mobileClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("nearsync-mobile")
-                .clientAuthenticationMethod(ClientAuthenticationMethod.NONE) // 公开客户端
-                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("nearsync://callback")
-                .scope(OidcScopes.OPENID)
-                .scope(OidcScopes.PROFILE)
-                .scope("user.read")
-                .tokenSettings(TokenSettings.builder()
-                        .accessTokenTimeToLive(Duration.ofHours(1))
-                        .refreshTokenTimeToLive(Duration.ofDays(30))
-                        .build())
-                .clientSettings(ClientSettings.builder()
-                        .requireAuthorizationConsent(true)
-                        .requireProofKey(true) // 强制 PKCE
-                        .build())
-                .build();
-
-        // 服务间调用客户端
-        RegisteredClient serviceClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("internal-service")
-                .clientSecret(passwordEncoder().encode("service-secret-2024"))
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                .scope("service.internal")
-                .tokenSettings(TokenSettings.builder()
-                        .accessTokenTimeToLive(Duration.ofMinutes(30))
-                        .build())
-                .build();
-
-        return new InMemoryRegisteredClientRepository(webClient, mobileClient, serviceClient);
+    public RegisteredClientRepository registeredClientRepository(
+            ISysRegisteredClientService sysRegisteredClientService) {
+        log.info("Initializing TenantRegisteredClientRepository (DB-backed Phase 1.4)");
+        return new TenantRegisteredClientRepository(sysRegisteredClientService);
     }
 
     /**
@@ -267,8 +216,48 @@ public class AuthorizationServerConfig {
                     claims.put("deviceId", user.getDeviceId());
                     claims.put("ipAddress", user.getIpAddress());
                     claims.put("amr", user.getAmr());
+                    // Phase 1.5 — 携带 tenant_id 与 app_id,供下游网关/服务识别租户上下文
+                    if (user.getTenantId() != null) {
+                        claims.put("tenant_id", String.valueOf(user.getTenantId()));
+                    }
+                    if (user.getAppId() != null) {
+                        claims.put("app_id", String.valueOf(user.getAppId()));
+                    }
                 });
             }
+        };
+    }
+
+    /**
+     * JwtAuthenticationConverter — Phase 1.5。
+     *
+     * <p>从 JWT 中提取 {@code userId} / {@code tenant_id} / {@code app_id} 等自定义 claim,
+     * 合并 {@link JwtGrantedAuthoritiesConverter} 的标准 authorities,构建
+     * {@link JwtAuthenticationToken}。下游服务(resource server)可直接从
+     * {@code authentication.getToken().getClaims()} 中拿到 tenant_id / app_id。
+     */
+    @Bean
+    public Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        authoritiesConverter.setAuthorityPrefix("SCOPE_");
+
+        return jwt -> {
+            Collection<GrantedAuthority> authorities = new HashSet<>(authoritiesConverter.convert(jwt));
+            // 同时把 roles 字段也作为 authority 添加(保持与旧实现一致)
+            Object rolesClaim = jwt.getClaims().get("roles");
+            if (rolesClaim instanceof Collection<?> roleCollection) {
+                for (Object role : roleCollection) {
+                    if (role != null) {
+                        authorities.add(new SimpleGrantedAuthority(role.toString()));
+                    }
+                }
+            }
+
+            String name = jwt.getSubject();
+            if (jwt.getClaimAsString("username") != null) {
+                name = jwt.getClaimAsString("username");
+            }
+            return new JwtAuthenticationToken(jwt, authorities, name);
         };
     }
 
