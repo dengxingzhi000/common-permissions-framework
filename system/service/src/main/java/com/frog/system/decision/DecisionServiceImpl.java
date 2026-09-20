@@ -165,6 +165,12 @@ public class DecisionServiceImpl implements DecisionService {
             if (!resourceMatches(req, grant)) {
                 continue;
             }
+            // Role-target grants must be expanded to the role's permissions and
+            // verified against the request action. See class-level Javadoc step 2.
+            if (SysGrant.Target.ROLE.equals(grant.getTargetType())
+                    && !roleGrantsAction(grant, req.getAction())) {
+                continue;
+            }
             int priority = grant.getPriority() == null ? 100 : grant.getPriority();
             String effect = grant.getEffect() == null ? SysGrant.Effect.ALLOW : grant.getEffect();
 
@@ -179,6 +185,38 @@ public class DecisionServiceImpl implements DecisionService {
             }
         }
         return current;
+    }
+
+    /**
+     * 对于 {@link SysGrant.Target#ROLE} 授权,展开为角色的所有 permission_code,
+     * 并判断是否存在匹配请求动作的权限。当 {@code grant.action} 为空时,
+     * 表示该授权适用于任何动作 — 只要角色拥有任一权限即视为授予;
+     * 当 {@code grant.action} 非空时,请求动作必须等于授权动作,且角色
+     * 必须拥有 code 等于该授权动作的权限。
+     */
+    private boolean roleGrantsAction(SysGrant grant, String requestAction) {
+        List<SysPermission> rolePerms =
+                permissionMapper.findPermissionsByRoleId(grant.getTargetId());
+        if (rolePerms == null || rolePerms.isEmpty()) {
+            return false;
+        }
+        String grantAction = grant.getAction();
+        if (grantAction == null || grantAction.isBlank()) {
+            // 授权未限定动作 — 任意角色权限即视为覆盖请求动作(若请求动作非空)
+            if (requestAction == null) {
+                return true;
+            }
+            return rolePerms.stream()
+                    .anyMatch(p -> p.getPermissionCode() != null
+                            && p.getPermissionCode().equals(requestAction));
+        }
+        // 授权限定动作 — 必须同时匹配 grant.action 与 requestAction
+        if (requestAction == null || !grantAction.equals(requestAction)) {
+            return false;
+        }
+        return rolePerms.stream()
+                .anyMatch(p -> p.getPermissionCode() != null
+                        && p.getPermissionCode().equals(grantAction));
     }
 
     private boolean scopeMatches(CheckRequest req, SysGrant grant) {

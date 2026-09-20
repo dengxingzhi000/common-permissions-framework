@@ -1,10 +1,13 @@
 package com.frog.system.service.Impl;
 
+import com.frog.common.web.util.SecurityUtils;
+import com.frog.common.web.util.SecurityUtils.CurrentUserProvider;
 import com.frog.system.domain.entity.SysPermissionApproval;
 import com.frog.system.mapper.SysPermissionApprovalMapper;
 import com.frog.system.notification.NotificationService;
 import com.frog.system.service.CrossDatabaseQueryService;
 import com.frog.system.service.ISysUserPermissionService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -13,10 +16,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Method;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SysPermissionApprovalServiceImplGrantType2Test {
@@ -33,12 +38,21 @@ class SysPermissionApprovalServiceImplGrantType2Test {
     @InjectMocks
     SysPermissionApprovalServiceImpl service;
 
+    @AfterEach
+    void tearDown() {
+        SecurityUtils.setProvider(null);
+    }
+
     @Test
     void grantPermissions_type2_callsUserPermissionServiceGrant() throws Exception {
         UUID targetUser = UUID.randomUUID();
         UUID approver = UUID.randomUUID();
         UUID permId = UUID.randomUUID();
         UUID approvalId = UUID.randomUUID();
+
+        CurrentUserProvider provider = org.mockito.Mockito.mock(CurrentUserProvider.class);
+        when(provider.getCurrentUserId()).thenReturn(Optional.of(approver.toString()));
+        SecurityUtils.setProvider(provider);
 
         SysPermissionApproval approval = SysPermissionApproval.builder()
                 .id(approvalId)

@@ -91,8 +91,6 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("findOptionalByClientId — empty when missing")
     void findOptionalByClientId_empty() {
-        when(clientMapper.findByClientId("ghost")).thenReturn(null);
-
         assertThat(clientService.findOptionalByClientId("ghost")).isEmpty();
     }
 
