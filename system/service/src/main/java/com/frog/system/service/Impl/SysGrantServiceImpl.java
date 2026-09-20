@@ -3,8 +3,10 @@ package com.frog.system.service.Impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.frog.common.exception.BusinessException;
 import com.frog.common.util.UUIDv7Util;
+import com.frog.sdk.authz.invalidate.InvalidationEvent;
 import com.frog.system.domain.entity.SysGrant;
 import com.frog.system.mapper.SysGrantMapper;
+import com.frog.system.notification.InvalidationPublisher;
 import com.frog.system.service.ISysGrantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class SysGrantServiceImpl extends ServiceImpl<SysGrantMapper, SysGrant>
         implements ISysGrantService {
 
     private final SysGrantMapper grantMapper;
+    private final InvalidationPublisher invalidationPublisher;
 
     @Override
     public List<SysGrant> listActiveBySubject(String subjectType, UUID subjectId,
@@ -70,6 +73,10 @@ public class SysGrantServiceImpl extends ServiceImpl<SysGrantMapper, SysGrant>
                 grant.getId(), grant.getSubjectType(), grant.getSubjectId(),
                 grant.getTargetType(), grant.getTargetId(),
                 grant.getEffect(), grant.getPriority());
+
+        invalidationPublisher.publish(InvalidationEvent.InvalidationType.GRANT,
+                grant.getSubjectId(), grant.getAppId(), grant.getTenantId(),
+                grant.getTargetType());
         return grant;
     }
 
@@ -83,6 +90,10 @@ public class SysGrantServiceImpl extends ServiceImpl<SysGrantMapper, SysGrant>
         }
         grantMapper.deleteById(id);
         log.info("Grant revoked: id={}", id);
+
+        invalidationPublisher.publish(InvalidationEvent.InvalidationType.GRANT,
+                grant.getSubjectId(), grant.getAppId(), grant.getTenantId(),
+                grant.getTargetType());
     }
 
     private void validateGrant(SysGrant grant) {

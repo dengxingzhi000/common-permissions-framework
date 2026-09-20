@@ -7,9 +7,11 @@ import com.frog.common.exception.BusinessException;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.frog.common.dto.role.RoleDTO;
 import com.frog.common.web.util.SecurityUtils;
+import com.frog.sdk.authz.invalidate.InvalidationEvent;
 import com.frog.system.domain.entity.SysRole;
 import com.frog.system.event.DataSyncEventPublisher;
 import com.frog.system.mapper.*;
+import com.frog.system.notification.InvalidationPublisher;
 import com.frog.system.service.ISysRoleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     private final SysRoleDeptMapper roleDeptMapper;
     private final SysRoleDataRuleMapper roleDataRuleMapper;
     private final SysConfigService sysConfigService;
+    private final InvalidationPublisher invalidationPublisher;
 
     /**
      * 分页查询角色列表
@@ -138,6 +141,13 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         // Publish sync event for redundancy update
         dataSyncEventPublisher.publishRoleCreated(role);
 
+        // Phase 2: any subject holding this role now has a different effective
+        // permission set — invalidate per-role so SDK caches drop derived entries.
+        if (roleDTO.getPermissionIds() != null && !roleDTO.getPermissionIds().isEmpty()) {
+            invalidationPublisher.publish(InvalidationEvent.InvalidationType.PERMISSION,
+                    null, null, role.getTenantId(), "role:" + role.getId());
+        }
+
         log.info("Role created: {}, by: {}", role.getRoleCode(), SecurityUtils.getCurrentUsername());
     }
 
@@ -221,6 +231,11 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         // 5. 发布同步事件用于冗余数据更新
         dataSyncEventPublisher.publishRoleDeleted(id);
 
+        // Phase 2: role removed entirely — every subject who used to hold it
+        // loses those permissions.
+        invalidationPublisher.publish(InvalidationEvent.InvalidationType.PERMISSION,
+                null, null, role.getTenantId(), "role:" + id);
+
         log.info("Role deleted: {}, by: {}", role.getRoleCode(), SecurityUtils.getCurrentUsername());
     }
 
@@ -246,6 +261,11 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
             rolePermissionMapper.batchInsertRolePermissions(roleId, permissionIds,
                     SecurityUtils.getCurrentUserUuid().orElse(null));
         }
+
+        // Phase 2: role's permission set changed — every subject holding this
+        // role now has a different effective permission set.
+        invalidationPublisher.publish(InvalidationEvent.InvalidationType.PERMISSION,
+                null, null, role.getTenantId(), "role:" + roleId);
 
         log.info("Permissions granted to role: {}, permissions count: {}, by: {}",
                 role.getRoleCode(), permissionIds != null ? permissionIds.size() : 0,
