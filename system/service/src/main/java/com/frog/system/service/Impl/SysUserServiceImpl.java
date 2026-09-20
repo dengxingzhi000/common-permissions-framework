@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.frog.common.config.SysConfigService;
 import com.frog.common.data.rw.annotation.Slave;
 import com.frog.common.response.ResultCode;
+import com.frog.common.security.revocation.UserRevocationService;
 import com.frog.common.util.UUIDv7Util;
 
 import com.frog.common.exception.BusinessException;
@@ -53,6 +54,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final PasswordEncoder passwordEncoder;
     private final DataSyncEventPublisher dataSyncEventPublisher;
     private final SysConfigService sysConfigService;
+    private final UserRevocationService userRevocationService;
 
     @Value("${spring.security.default-password}")
     private String defaultPassword;
@@ -311,6 +313,40 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         dataSyncEventPublisher.publishUserDeleted(id);
 
         log.info("User deleted: {}, by: {}", user.getUsername(), SecurityUtils.getCurrentUsername());
+    }
+
+    /**
+     * 禁用用户（status=0）并立刻吊销该用户所有有效 JWT。
+     *
+     * <p>调用 {@link UserRevocationService#revokeUser(UUID, String)} 之后任何
+     * 携带旧 {@code iat} 的 token 都会在 {@code JwtAuthenticationFilter} 中被
+     * 判定为已撤销。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(
+            value = {"user", "userDetails", "userInfo"},
+            key = "#id"
+    )
+    public void disableUser(UUID id) {
+        SysUser user = userMapper.selectById(id);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND.getCode(),
+                    ResultCode.USER_NOT_FOUND.getMessage());
+        }
+
+        UUID superAdminId = sysConfigService.getUuid("super_admin_user_id");
+        if (superAdminId != null && user.getId().equals(superAdminId)) {
+            throw new BusinessException(ResultCode.USER_CANNOT_DELETE_ADMIN.getCode(),
+                    ResultCode.USER_CANNOT_DELETE_ADMIN.getMessage());
+        }
+
+        user.setStatus(0);
+        userMapper.updateById(user);
+
+        long version = userRevocationService.revokeUser(user.getId(), "user_disabled");
+
+        log.info("User disabled: {}, version={}, by: {}",
+                user.getUsername(), version, SecurityUtils.getCurrentUsername());
     }
 
     /**

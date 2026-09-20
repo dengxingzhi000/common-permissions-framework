@@ -484,6 +484,17 @@ public class JwtUtils {
         return (String) claims.get("deviceId");
     }
 
+    /**
+     * Returns the JWT {@code iat} (issued-at) claim as a Unix epoch second.
+     * Used by the revocation checker to compare a token's age against the
+     * current revocation version counter.
+     */
+    public long getIssuedAtFromToken(String token) {
+        Claims claims = parseToken(token);
+        Date issuedAt = claims.getIssuedAt();
+        return issuedAt == null ? 0L : issuedAt.toInstant().getEpochSecond();
+    }
+
     private String getJti(Claims claims) {
         return (String) claims.get("jti");
     }
