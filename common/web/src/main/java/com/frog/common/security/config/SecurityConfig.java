@@ -8,6 +8,7 @@ import com.frog.common.security.handler.JwtAccessDeniedHandler;
 import com.frog.common.security.handler.JwtAuthenticationEntryPoint;
 import com.frog.common.security.identity.IdentityTokenProperties;
 import com.frog.common.security.stepup.StepUpFilter;
+import com.frog.common.tenant.TenantContextFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -56,6 +57,7 @@ public class SecurityConfig {
     private final StepUpFilter stepUpFilter;
     private final SecurityHeadersProperties securityHeadersProperties;
     private final IdentityTokenVerificationFilter identityTokenVerificationFilter;
+    private final TenantContextFilter tenantContextFilter;
 
     /**
      * Spring Security 主过滤器链
@@ -152,7 +154,10 @@ public class SecurityConfig {
                 .addFilterBefore(identityTokenVerificationFilter, LogoutFilter.class)
                 .addFilterBefore(sqlInjectionFilter, LogoutFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(stepUpFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(stepUpFilter, JwtAuthenticationFilter.class)
+                // TenantContext 在 JwtAuthenticationFilter 之后:这样 Phase 1.5+ 时可以
+                // 从 JWT claim 拿到 tenantId(目前 Phase 1.3 仅从 X-Tenant-Id header 读)
+                .addFilterAfter(tenantContextFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

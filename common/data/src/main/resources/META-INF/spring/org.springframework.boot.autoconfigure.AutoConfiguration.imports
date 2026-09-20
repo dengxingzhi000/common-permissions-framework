@@ -1,1 +1,2 @@
 com.frog.common.data.rw.config.ReadWriteAutoConfiguration
+com.frog.common.tenant.TenantAutoConfiguration
