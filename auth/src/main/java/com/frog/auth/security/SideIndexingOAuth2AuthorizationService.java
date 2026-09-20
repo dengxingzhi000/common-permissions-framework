@@ -7,7 +7,6 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
-import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
@@ -19,9 +18,6 @@ import java.util.UUID;
  * @since 2026-09-19
  */
 @Slf4j
-// NOTE: When OAuth2AuthorizationServiceConfig (Task 6) declares a @Primary @Bean factory
-// with the same name, drop @Service to avoid BeanDefinitionOverrideException.
-@Service
 public class SideIndexingOAuth2AuthorizationService implements OAuth2AuthorizationService {
 
     private static final String INDEX_KEY_PREFIX = "oauth2:user:auths:";
