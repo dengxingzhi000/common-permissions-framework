@@ -256,13 +256,9 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>${org.projectlombok.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
+                    <!-- Lombok discovered via compile classpath (ServiceLoader).
+                         Do NOT use annotationProcessorPaths — it conflicts with
+                         spring-boot-starter-parent 4.x pluginManagement. -->
                 </configuration>
             </plugin>
         </plugins>
