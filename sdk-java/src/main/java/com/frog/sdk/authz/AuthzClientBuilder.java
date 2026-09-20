@@ -1,6 +1,8 @@
 package com.frog.sdk.authz;
 
-import com.frog.sdk.authz.invalidate.InvalidationSubscriber;
+import com.frog.sdk.api.authz.CheckRequest;
+import com.frog.sdk.api.authz.Decision;
+import com.frog.sdk.api.authz.InvalidationSubscriber;
 import com.frog.sdk.authz.invalidate.KafkaInvalidationSubscriber;
 import com.frog.sdk.authz.invalidate.WebSocketInvalidationSubscriber;
 import org.jspecify.annotations.Nullable;

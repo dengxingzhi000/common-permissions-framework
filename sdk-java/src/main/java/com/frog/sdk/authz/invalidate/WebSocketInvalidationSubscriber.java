@@ -1,5 +1,8 @@
 package com.frog.sdk.authz.invalidate;
 
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationSubscriber;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.frog.sdk.authz.LocalAuthzClient;
 import lombok.extern.slf4j.Slf4j;
@@ -194,13 +197,9 @@ public class WebSocketInvalidationSubscriber implements InvalidationSubscriber {
     }
 
     private void applyInvalidation(InvalidationEvent event) {
-        // Same conservative policy as KafkaInvalidationSubscriber for Phase 2.
-        switch (event.type()) {
-            case SUBJECT, GRANT, ROLE, PERMISSION, ALL -> {
-                log.debug("WS invalidation ({}): clearing local cache", event.type());
-                local.invalidateCache();
-            }
-        }
+        // Delegate to LocalAuthzClient.dispatchInvalidation which applies selective
+        // per-subject eviction for SUBJECT events and full eviction otherwise.
+        local.dispatchInvalidation(event);
     }
 
     private static String extractPath(String url) {

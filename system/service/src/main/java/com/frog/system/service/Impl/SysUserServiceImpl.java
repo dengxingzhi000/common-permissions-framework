@@ -16,7 +16,8 @@ import com.frog.common.dto.user.UserDTO;
 import com.frog.common.dto.user.UserInfo;
 import com.frog.common.web.domain.SecurityUser;
 import com.frog.common.web.util.SecurityUtils;
-import com.frog.sdk.authz.invalidate.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationType;
 import com.frog.system.domain.entity.SysApplication;
 import com.frog.system.domain.entity.SysUser;
 import com.frog.system.event.DataSyncEventPublisher;
@@ -276,7 +277,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         dataSyncEventPublisher.publishUserCreated(user);
 
         // Phase 2: notify SDK caches that this subject's role set just changed
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.ROLE,
+        invalidationPublisher.publish(InvalidationType.ROLE,
                 user.getId(), null, user.getTenantId(), null);
 
         log.info("User created: {}, by: {}", user.getUsername(), SecurityUtils.getCurrentUsername());
@@ -317,7 +318,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         dataSyncEventPublisher.publishUserUpdated(updatedUser);
 
         // Phase 2: notify SDK caches that this subject's role set just changed
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.ROLE,
+        invalidationPublisher.publish(InvalidationType.ROLE,
                 user.getId(), null, user.getTenantId(), null);
 
         log.info("User updated: {}, by: {}", user.getUsername(), SecurityUtils.getCurrentUsername());
@@ -388,7 +389,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
         // Phase 2: subject-level invalidation — every SDK check for this user
         // must immediately evaluate the disabled state on next access.
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.SUBJECT,
+        invalidationPublisher.publish(InvalidationType.SUBJECT,
                 user.getId(), null, user.getTenantId(), null);
 
         log.info("User disabled: {}, version={}, by: {}",
@@ -507,7 +508,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
         // Phase 2: user↔role link changed — invalidate any cached decisions
         // for this subject so the next check recomputes from the new role set.
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.ROLE,
+        invalidationPublisher.publish(InvalidationType.ROLE,
                 userId, null, user.getTenantId(), null);
 
         log.info("Roles granted to user: {}, roles: {}, by: {}",
@@ -580,7 +581,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         // Phase 2: temporary role set changed.
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.ROLE,
+        invalidationPublisher.publish(InvalidationType.ROLE,
                 userId, null, user.getTenantId(), null);
 
         log.info("Temporary roles granted to user: {}, roles: {}, expireTime: {}, by: {}",
@@ -632,7 +633,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         // Phase 2: temporary role removed before schedule.
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.ROLE,
+        invalidationPublisher.publish(InvalidationType.ROLE,
                 userId, null, null, null);
 
         log.info("Temporary role terminated: userId={}, roleId={}, by={}",

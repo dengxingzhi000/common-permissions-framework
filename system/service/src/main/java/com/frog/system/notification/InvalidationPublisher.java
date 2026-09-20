@@ -2,7 +2,8 @@ package com.frog.system.notification;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.frog.sdk.authz.invalidate.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationType;
 import com.frog.system.controller.PermissionEventWebSocketController;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -56,9 +57,15 @@ public class InvalidationPublisher {
      * Build and dispatch an event with the given type for the named subject.
      * Convenience method for callers that already know the scope.
      */
-    public void publish(InvalidationEvent.InvalidationType type, UUID subjectId,
+    public void publish(InvalidationType type, String subjectType, UUID subjectId,
                         UUID appId, UUID tenantId, String resourceType) {
-        publish(new InvalidationEvent(type, subjectId, appId, tenantId, resourceType, Instant.now()));
+        publish(new InvalidationEvent(type, subjectType, subjectId, appId, tenantId, resourceType, Instant.now()));
+    }
+
+    /** Backwards-compatible overload — subjectType defaults to {@code "user"}. */
+    public void publish(InvalidationType type, UUID subjectId,
+                        UUID appId, UUID tenantId, String resourceType) {
+        publish(type, "user", subjectId, appId, tenantId, resourceType);
     }
 
     /**

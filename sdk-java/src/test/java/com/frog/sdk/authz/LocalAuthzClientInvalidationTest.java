@@ -1,7 +1,8 @@
 package com.frog.sdk.authz;
 
-import com.frog.sdk.authz.invalidate.InvalidationEvent;
-import com.frog.sdk.authz.invalidate.InvalidationSubscriber;
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationType;
+import com.frog.sdk.api.authz.InvalidationSubscriber;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,8 +68,7 @@ class LocalAuthzClientInvalidationTest {
         client.registerInvalidationSubscriber(sub1);
         client.registerInvalidationSubscriber(sub2);
 
-        client.dispatchInvalidation(new InvalidationEvent(
-                InvalidationEvent.InvalidationType.ALL, null, null, null, null, Instant.now()));
+        client.dispatchInvalidation(new InvalidationEvent(InvalidationType.ALL, null, null, null, null, null, Instant.now()));
 
         assertThat(counter.get()).isEqualTo(11);
     }
@@ -80,8 +80,7 @@ class LocalAuthzClientInvalidationTest {
         client.registerInvalidationSubscriber(event -> { throw new RuntimeException("boom"); });
         client.registerInvalidationSubscriber(event -> counter.incrementAndGet());
 
-        client.dispatchInvalidation(new InvalidationEvent(
-                InvalidationEvent.InvalidationType.GRANT, UUID.randomUUID(), null, null, null, Instant.now()));
+        client.dispatchInvalidation(new InvalidationEvent(InvalidationType.GRANT, "user", UUID.randomUUID(), null, null, null, Instant.now()));
 
         assertThat(counter.get()).isEqualTo(1);
     }
@@ -109,8 +108,7 @@ class LocalAuthzClientInvalidationTest {
         // WebSocketInvalidationSubscriber both do this)
         client.registerInvalidationSubscriber(event -> client.invalidateCache());
 
-        client.dispatchInvalidation(new InvalidationEvent(
-                InvalidationEvent.InvalidationType.SUBJECT, UUID.randomUUID(),
+        client.dispatchInvalidation(new InvalidationEvent(InvalidationType.SUBJECT, "user", UUID.randomUUID(),
                 null, null, null, Instant.now()));
 
         verify(http, times(1)).check(req);

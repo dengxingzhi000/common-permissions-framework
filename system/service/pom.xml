@@ -58,13 +58,12 @@
         </dependency>
         <!-- common end -->
 
-        <!-- authz-sdk — Phase 2 push invalidation DTOs (InvalidationEvent, InvalidationSubscriber)
-             consumed by InvalidationPublisher and the WS handler. The dependency direction is
-             unusual (server -> SDK) but the SDK has no reverse edge on system/service, and
-             duplicating InvalidationEvent in two modules would diverge over time. -->
+        <!-- sdk-api — shared authz DTOs (InvalidationEvent, InvalidationType, CheckRequest, Decision)
+             consumed by InvalidationPublisher and the WS handler. Points at the pure
+             sdk-api module (no Spring), fixing the previous server -> sdk-java edge. -->
         <dependency>
             <groupId>com.frog.sdk</groupId>
-            <artifactId>authz</artifactId>
+            <artifactId>api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
 

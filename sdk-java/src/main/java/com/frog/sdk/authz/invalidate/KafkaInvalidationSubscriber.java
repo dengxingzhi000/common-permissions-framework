@@ -155,22 +155,9 @@ public class KafkaInvalidationSubscriber implements InvalidationSubscriber {
     }
 
     private void applyInvalidation(InvalidationEvent event) {
-        // Phase 2.5 TODO: per-subject keying when SUBJECT events arrive with a non-null subjectId.
-        // For now the cache is keyed on the full CheckRequest and we conservatively invalidate
-        // everything — safe default, marginally wasteful.
-        switch (event.type()) {
-            case SUBJECT -> {
-                if (event.subjectId() != null) {
-                    log.debug("SUBJECT invalidation received for subjectId={} — clearing local cache",
-                            event.subjectId());
-                }
-                local.invalidateCache();
-            }
-            case GRANT, ROLE, PERMISSION, ALL -> {
-                log.debug("{} invalidation received — clearing local cache", event.type());
-                local.invalidateCache();
-            }
-        }
+        // Delegate to LocalAuthzClient.dispatchInvalidation which applies selective
+        // per-subject eviction for SUBJECT events and full eviction otherwise.
+        local.dispatchInvalidation(event);
     }
 
     /**

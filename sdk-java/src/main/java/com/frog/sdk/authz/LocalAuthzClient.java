@@ -1,7 +1,10 @@
 package com.frog.sdk.authz;
 
-import com.frog.sdk.authz.invalidate.InvalidationEvent;
-import com.frog.sdk.authz.invalidate.InvalidationSubscriber;
+import com.frog.sdk.api.authz.CheckRequest;
+import com.frog.sdk.api.authz.Decision;
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationSubscriber;
+import com.frog.sdk.api.authz.InvalidationType;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
@@ -117,10 +120,11 @@ public class LocalAuthzClient implements AuthzClient {
      * <p>Exceptions thrown by a subscriber are caught and logged so a misbehaving
      * observer can't poison the dispatch loop.
      */
-    protected void dispatchInvalidation(InvalidationEvent event) {
+    public void dispatchInvalidation(InvalidationEvent event) {
         if (event == null) {
             return;
         }
+        applyLocalInvalidation(event);
         for (InvalidationSubscriber subscriber : subscribers) {
             try {
                 subscriber.onInvalidation(event);
@@ -129,6 +133,36 @@ public class LocalAuthzClient implements AuthzClient {
                         subscriber.getClass().getSimpleName(), event.type(), ex.getMessage());
             }
         }
+    }
+
+    /**
+     * Apply the event to the local Caffeine cache (Phase 2.5 selective invalidation).
+     *
+     * <p>Cache keys start with {@code subjectType|subjectId|}, so a SUBJECT event
+     * can evict just that subject's entries. GRANT / ROLE / PERMISSION / ALL
+     * use the safe default of full eviction — a follow-up may scope these by
+     * tenant/app when the key gains those dimensions.
+     */
+    private void applyLocalInvalidation(InvalidationEvent event) {
+        if (event.type() == InvalidationType.ALL) {
+            cache.invalidateAll();
+            return;
+        }
+        if (event.type() == InvalidationType.SUBJECT && event.subjectId() != null) {
+            String subjectType = event.subjectType() == null ? "" : event.subjectType();
+            String prefix = subjectType + "|" + event.subjectId() + "|";
+            cache.asMap().keySet().removeIf(k -> k.startsWith(prefix));
+            return;
+        }
+        cache.invalidateAll();
+    }
+
+    /**
+     * Evict every cached decision for one subject (explicit admin entrypoint).
+     */
+    public void invalidateSubject(String subjectType, UUID subjectId) {
+        String prefix = (subjectType == null ? "" : subjectType) + "|" + subjectId + "|";
+        cache.asMap().keySet().removeIf(k -> k.startsWith(prefix));
     }
 
     /**

@@ -78,7 +78,8 @@ class KafkaInvalidationSubscriberTest {
                 "localhost:9092", "g", "app", local, "authz.invalidations", mapper);
 
         InvalidationEvent event = new InvalidationEvent(
-                InvalidationEvent.InvalidationType.SUBJECT,
+                InvalidationType.SUBJECT,
+                "user",
                 UUID.randomUUID(), null, null, null, Instant.now());
         byte[] payload = mapper.writeValueAsBytes(event);
 

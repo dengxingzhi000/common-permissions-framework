@@ -1,5 +1,7 @@
 package com.frog.sdk.authz;
 
+import com.frog.sdk.api.authz.CheckRequest;
+import com.frog.sdk.api.authz.Decision;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;

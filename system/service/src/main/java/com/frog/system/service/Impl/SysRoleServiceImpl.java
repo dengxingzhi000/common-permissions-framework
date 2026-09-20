@@ -7,7 +7,8 @@ import com.frog.common.exception.BusinessException;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.frog.common.dto.role.RoleDTO;
 import com.frog.common.web.util.SecurityUtils;
-import com.frog.sdk.authz.invalidate.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationType;
 import com.frog.system.domain.entity.SysRole;
 import com.frog.system.event.DataSyncEventPublisher;
 import com.frog.system.mapper.*;
@@ -144,7 +145,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         // Phase 2: any subject holding this role now has a different effective
         // permission set — invalidate per-role so SDK caches drop derived entries.
         if (roleDTO.getPermissionIds() != null && !roleDTO.getPermissionIds().isEmpty()) {
-            invalidationPublisher.publish(InvalidationEvent.InvalidationType.PERMISSION,
+            invalidationPublisher.publish(InvalidationType.PERMISSION,
                     null, null, role.getTenantId(), "role:" + role.getId());
         }
 
@@ -233,7 +234,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
         // Phase 2: role removed entirely — every subject who used to hold it
         // loses those permissions.
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.PERMISSION,
+        invalidationPublisher.publish(InvalidationType.PERMISSION,
                 null, null, role.getTenantId(), "role:" + id);
 
         log.info("Role deleted: {}, by: {}", role.getRoleCode(), SecurityUtils.getCurrentUsername());
@@ -264,7 +265,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
         // Phase 2: role's permission set changed — every subject holding this
         // role now has a different effective permission set.
-        invalidationPublisher.publish(InvalidationEvent.InvalidationType.PERMISSION,
+        invalidationPublisher.publish(InvalidationType.PERMISSION,
                 null, null, role.getTenantId(), "role:" + roleId);
 
         log.info("Permissions granted to role: {}, permissions count: {}, by: {}",
