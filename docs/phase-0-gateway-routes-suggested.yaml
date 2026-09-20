@@ -1,0 +1,44 @@
+# Phase 0 — Gateway Route Suggestion (operator reference)
+#
+# This file is a SUGGESTED Nacos configuration snapshot for the gateway,
+# NOT an applied configuration. Nacos is the source of truth for gateway
+# routes; commit this file to document the intent so operators can
+# apply it through the Nacos UI / API.
+#
+# Rationale (Phase 0, Item 0.8 — /v1/ prefix routing, Task 4.1):
+# - We introduced a /v1/ API version prefix on every controller
+#   (auth + system). The /v1/ routes are the new canonical entry points.
+# - The legacy /api/... paths are KEPT on the controllers but removed
+#   from the controller @RequestMapping (already done in this commit);
+#   the legacy paths are routed only via this gateway predicate alias.
+# - StripPrefix=3 strips /v1/api/<service>/ when forwarding to the
+#   downstream service. Downstream controllers expose the full
+#   /v1/api/<service>/... path internally because the gateway already
+#   keeps the prefix when configured this way; verify with the operator
+#   that the downstream ServiceRegistration serves the path the
+#   controllers expect, and adjust StripPrefix if your auth-service
+#   / system-service internally remap paths.
+# - AddResponseHeader=Deprecation=true and Sunset follow RFC 8594 and
+#   signal API deprecation per IETF draft-ietf-httpapi-deprecation-headers.
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-v1
+          uri: lb://auth-service
+          predicates:
+            - Path=/v1/api/auth/**,/api/auth/**
+          filters:
+            - StripPrefix=3
+            - AddResponseHeader=Deprecation, true
+            - AddResponseHeader=Sunset, Mon, 01 Mar 2027 00:00:00 GMT
+
+        - id: system-v1
+          uri: lb://system-service
+          predicates:
+            - Path=/v1/api/system/**,/api/system/**
+          filters:
+            - StripPrefix=3
+            - AddResponseHeader=Deprecation, true
+            - AddResponseHeader=Sunset, Mon, 01 Mar 2027 00:00:00 GMT
