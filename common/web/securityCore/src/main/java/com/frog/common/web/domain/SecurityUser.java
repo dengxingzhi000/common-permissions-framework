@@ -43,6 +43,22 @@ public class SecurityUser implements UserDetails {
     private String password;
     private String realName;
     private UUID deptId;
+    /**
+     * 租户 ID — Phase 1.5。
+     *
+     * <p>对于尚未迁移到多租户的用户,可能为 {@code null}(保留向后兼容)。
+     * 由 {@code SysUserServiceImpl.getUserByUsername()} 从
+     * {@code sys_user.tenant_id} 填充。
+     */
+    private UUID tenantId;
+    /**
+     * 应用 ID — Phase 1.5。
+     *
+     * <p>当前登录的应用(多应用场景下区分授权范围)。Phase 1.5 默认使用
+     * 租户下的 {@code appCode='default'} 应用;完整 OAuth2 client_id →
+     * app_id 的映射留待后续阶段。
+     */
+    private UUID appId;
     private Integer status;
     private Integer accountType;
     private Integer userLevel;

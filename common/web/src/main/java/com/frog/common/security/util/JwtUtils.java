@@ -310,6 +310,59 @@ public class JwtUtils {
                 UUID.fromString(userId.toString());
     }
 
+    /**
+     * 从 Token 中提取 tenant_id(UUID 形式)— Phase 1.5。
+     *
+     * <p>缺失或解析失败时返回 {@code null},兼容未携带该 claim 的旧 token。
+     *
+     * @param token JWT 字符串(必须已经过 {@link #validateToken} 校验)
+     * @return tenant_id,或 {@code null}
+     */
+    public UUID getTenantIdFromToken(String token) {
+        try {
+            Claims claims = parseToken(token);
+            Object value = claims.get("tenant_id");
+            if (value == null) {
+                return null;
+            }
+            if (value instanceof UUID uuid) {
+                return uuid;
+            }
+            return UUID.fromString(value.toString());
+        } catch (IllegalArgumentException ex) {
+            log.debug("tenant_id claim is not a valid UUID: {}", ex.getMessage());
+            return null;
+        } catch (Exception ex) {
+            log.warn("Failed to read tenant_id from token: {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 从 Token 中提取 app_id(UUID 形式)— Phase 1.5。
+     *
+     * <p>缺失或解析失败时返回 {@code null},兼容未携带该 claim 的旧 token。
+     */
+    public UUID getAppIdFromToken(String token) {
+        try {
+            Claims claims = parseToken(token);
+            Object value = claims.get("app_id");
+            if (value == null) {
+                return null;
+            }
+            if (value instanceof UUID uuid) {
+                return uuid;
+            }
+            return UUID.fromString(value.toString());
+        } catch (IllegalArgumentException ex) {
+            log.debug("app_id claim is not a valid UUID: {}", ex.getMessage());
+            return null;
+        } catch (Exception ex) {
+            log.warn("Failed to read app_id from token: {}", ex.getMessage());
+            return null;
+        }
+    }
+
     public String getUsernameFromToken(String token) {
         Claims claims = parseToken(token);
         return (String) claims.get("username");

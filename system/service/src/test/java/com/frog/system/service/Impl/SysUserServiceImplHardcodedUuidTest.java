@@ -7,6 +7,7 @@ import com.frog.system.domain.entity.SysUser;
 import com.frog.system.event.DataSyncEventPublisher;
 import com.frog.system.mapper.SysUserMapper;
 import com.frog.system.service.CrossDatabaseQueryService;
+import com.frog.system.service.ISysApplicationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,6 +28,7 @@ class SysUserServiceImplHardcodedUuidTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock DataSyncEventPublisher dataSyncEventPublisher;
     @Mock SysConfigService sysConfigService;
+    @Mock ISysApplicationService applicationService;
     @InjectMocks SysUserServiceImpl service;
 
     @Test

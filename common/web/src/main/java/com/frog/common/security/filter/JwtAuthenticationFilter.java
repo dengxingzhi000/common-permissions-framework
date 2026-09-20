@@ -8,6 +8,7 @@ import com.frog.common.security.util.HttpServletRequestUtils;
 import com.frog.common.security.util.IpUtils;
 import com.frog.common.security.util.JwtUtils;
 import com.frog.common.security.util.SecurityErrorResponseWriter;
+import com.frog.common.tenant.TenantContext;
 import com.frog.common.web.domain.SecurityUser;
 import jakarta.annotation.Nonnull;
 import jakarta.servlet.FilterChain;
@@ -53,104 +54,118 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @Nonnull HttpServletResponse response,
                                     @Nonnull FilterChain filterChain) throws ServletException, IOException {
         try {
-            // 获取 Token
-            String token = httpServletRequestUtils.getTokenFromRequest(request);
+            try {
+                // 获取 Token
+                String token = httpServletRequestUtils.getTokenFromRequest(request);
 
-            if (StringUtils.hasText(token)) {
-                // 获取当前请求信息
-                String currentIp = IpUtils.getClientIp(request);
-                String currentDeviceId = httpServletRequestUtils.getDeviceId(request);
+                if (StringUtils.hasText(token)) {
+                    // 获取当前请求信息
+                    String currentIp = IpUtils.getClientIp(request);
+                    String currentDeviceId = httpServletRequestUtils.getDeviceId(request);
 
-                // 验证 Token
-                if (jwtUtils.validateToken(token, currentIp, currentDeviceId)) {
-                    // 提取用户信息
-                    UUID userId = jwtUtils.getUserIdFromToken(token);
+                    // 验证 Token
+                    if (jwtUtils.validateToken(token, currentIp, currentDeviceId)) {
+                        // 提取用户信息
+                        UUID userId = jwtUtils.getUserIdFromToken(token);
 
-                    // 撤销检查:token 的 iat 必须 >= 当前设备版本
-                    long tokenIat = jwtUtils.getIssuedAtFromToken(token);
-                    long currentVersion = userRevocationService
-                            .getCurrentVersion(userId, currentDeviceId);
-                    if (tokenIat < currentVersion) {
-                        securityMetrics.increment("security.jwt.revoked");
+                        // 撤销检查:token 的 iat 必须 >= 当前设备版本
+                        long tokenIat = jwtUtils.getIssuedAtFromToken(token);
+                        long currentVersion = userRevocationService
+                                .getCurrentVersion(userId, currentDeviceId);
+                        if (tokenIat < currentVersion) {
+                            securityMetrics.increment("security.jwt.revoked");
+                            decisionRecorder.record(new DecisionEvent(
+                                    UUID.randomUUID(), "user", userId, "auth.token",
+                                    null, null, Map.of(
+                                            "iat", tokenIat,
+                                            "version", currentVersion,
+                                            "deviceId", currentDeviceId == null ? "" : currentDeviceId),
+                                    "deny", "TOKEN_REVOKED",
+                                    null, request.getHeader("X-Request-ID"),
+                                    0L, "common-web", Instant.now()));
+                            SecurityErrorResponseWriter.write(request, response,
+                                    HttpServletResponse.SC_UNAUTHORIZED,
+                                    "TOKEN_REVOKED",
+                                    "Token revoked");
+                            return;
+                        }
+
+                        String username = jwtUtils.getUsernameFromToken(token);
+                        Set<String> permissions = jwtUtils.getPermissionsFromToken(token);
+                        Set<String> roles = jwtUtils.getRolesFromToken(token);
+
+                        // Phase 1.5 — 从 token 提取 tenantId / appId
+                        UUID tenantId = jwtUtils.getTenantIdFromToken(token);
+                        UUID appId = jwtUtils.getAppIdFromToken(token);
+                        if (tenantId != null) {
+                            TenantContext.set(tenantId);
+                        }
+
+                        // 构建权限列表
+                        Set<SimpleGrantedAuthority> authorities = permissions.stream()
+                                .map(SimpleGrantedAuthority::new)
+                                .collect(Collectors.toSet());
+
+                        authorities.addAll(roles.stream()
+                                .map(SimpleGrantedAuthority::new)
+                                .collect(Collectors.toSet()));
+
+                        // 创建认证对象
+                        SecurityUser userDetails = SecurityUser.builder()
+                                .userId(userId)
+                                .username(username)
+                                .permissions(permissions)
+                                .roles(roles)
+                                .tenantId(tenantId)
+                                .appId(appId)
+                                .build();
+
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails, null, authorities);
+
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                        // 设置到 Security上下文
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                        log.debug("User authenticated: traceId={}, userId={}, username={}, tenantId={}, appId={}",
+                                request.getHeader("X-Request-ID"), userId, username, tenantId, appId);
+                    } else {
+                        securityMetrics.increment("security.jwt.invalid");
                         decisionRecorder.record(new DecisionEvent(
-                                UUID.randomUUID(), "user", userId, "auth.token",
-                                null, null, Map.of(
-                                        "iat", tokenIat,
-                                        "version", currentVersion,
-                                        "deviceId", currentDeviceId == null ? "" : currentDeviceId),
-                                "deny", "TOKEN_REVOKED",
+                                UUID.randomUUID(), "user", null, "auth.token",
+                                null, null, Map.of("ip", currentIp),
+                                "deny", "INVALID_TOKEN",
                                 null, request.getHeader("X-Request-ID"),
                                 0L, "common-web", Instant.now()));
                         SecurityErrorResponseWriter.write(request, response,
                                 HttpServletResponse.SC_UNAUTHORIZED,
-                                "TOKEN_REVOKED",
-                                "Token revoked");
+                                "INVALID_TOKEN",
+                                "Token validation failed");
                         return;
                     }
-
-                    String username = jwtUtils.getUsernameFromToken(token);
-                    Set<String> permissions = jwtUtils.getPermissionsFromToken(token);
-                    Set<String> roles = jwtUtils.getRolesFromToken(token);
-
-                    // 构建权限列表
-                    Set<SimpleGrantedAuthority> authorities = permissions.stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toSet());
-
-                    authorities.addAll(roles.stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toSet()));
-
-                    // 创建认证对象
-                    SecurityUser userDetails = SecurityUser.builder()
-                            .userId(userId)
-                            .username(username)
-                            .permissions(permissions)
-                            .roles(roles)
-                            .build();
-
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails, null, authorities);
-
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                    // 设置到 Security上下文
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                    log.debug("User authenticated: traceId={}, userId={}, username={}",
-                            request.getHeader("X-Request-ID"), userId, username);
-                } else {
-                    securityMetrics.increment("security.jwt.invalid");
-                    decisionRecorder.record(new DecisionEvent(
-                            UUID.randomUUID(), "user", null, "auth.token",
-                            null, null, Map.of("ip", currentIp),
-                            "deny", "INVALID_TOKEN",
-                            null, request.getHeader("X-Request-ID"),
-                            0L, "common-web", Instant.now()));
-                    SecurityErrorResponseWriter.write(request, response,
-                            HttpServletResponse.SC_UNAUTHORIZED,
-                            "INVALID_TOKEN",
-                            "Token validation failed");
-                    return;
                 }
+            } catch (Exception e) {
+                securityMetrics.increment("security.jwt.errors");
+                log.error("Cannot set user authentication traceId={}", request.getHeader("X-Request-ID"), e);
+                decisionRecorder.record(new DecisionEvent(
+                        UUID.randomUUID(), "user", null, "auth.token",
+                        null, null, Map.of("error", String.valueOf(e.getMessage())),
+                        "deny", "AUTH_ERROR",
+                        null, request.getHeader("X-Request-ID"),
+                        0L, "common-web", Instant.now()));
+                SecurityErrorResponseWriter.write(request, response,
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "AUTH_ERROR",
+                        "Authentication error");
+                return;
             }
-        } catch (Exception e) {
-            securityMetrics.increment("security.jwt.errors");
-            log.error("Cannot set user authentication traceId={}", request.getHeader("X-Request-ID"), e);
-            decisionRecorder.record(new DecisionEvent(
-                    UUID.randomUUID(), "user", null, "auth.token",
-                    null, null, Map.of("error", String.valueOf(e.getMessage())),
-                    "deny", "AUTH_ERROR",
-                    null, request.getHeader("X-Request-ID"),
-                    0L, "common-web", Instant.now()));
-            SecurityErrorResponseWriter.write(request, response,
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "AUTH_ERROR",
-                    "Authentication error");
-            return;
-        }
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+        } finally {
+            // Phase 1.5 — 必须清理 ThreadLocal,避免线程池复用导致数据泄露
+            TenantContext.clear();
+        }
     }
 }

@@ -16,10 +16,12 @@ import com.frog.common.dto.user.UserDTO;
 import com.frog.common.dto.user.UserInfo;
 import com.frog.common.web.domain.SecurityUser;
 import com.frog.common.web.util.SecurityUtils;
+import com.frog.system.domain.entity.SysApplication;
 import com.frog.system.domain.entity.SysUser;
 import com.frog.system.event.DataSyncEventPublisher;
 import com.frog.system.mapper.SysUserMapper;
 import com.frog.system.service.CrossDatabaseQueryService;
+import com.frog.system.service.ISysApplicationService;
 import com.frog.system.service.ISysUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +57,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final DataSyncEventPublisher dataSyncEventPublisher;
     private final SysConfigService sysConfigService;
     private final UserRevocationService userRevocationService;
+    private final ISysApplicationService applicationService;
 
     @Value("${spring.security.default-password}")
     private String defaultPassword;
@@ -141,12 +144,18 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         Set<String> roles = crossDbService.findRoleCodesByUserId(user.getId());
         Set<String> permissions = crossDbService.findPermissionCodesByUserId(user.getId());
 
+        // Phase 1.5 — 解析 tenantId 与默认 appId
+        UUID tenantId = user.getTenantId();
+        UUID appId = resolveDefaultAppId(tenantId);
+
         return SecurityUser.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
                 .password(user.getPassword())
                 .realName(user.getRealName())
                 .deptId(user.getDeptId())
+                .tenantId(tenantId)
+                .appId(appId)
                 .status(user.getStatus())
                 .accountType(user.getAccountType())
                 .userLevel(user.getUserLevel())
@@ -157,6 +166,27 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
                 .passwordExpireTime(user.getPasswordExpireTime())
                 .forceChangePassword(user.getForceChangePassword())
                 .build();
+    }
+
+    /**
+     * 解析 Phase 1.5 默认 appId — 租户下 appCode='default' 的应用 ID。
+     *
+     * <p>如果用户尚未分配到租户,或租户下不存在 'default' 应用,返回 {@code null}
+     * (向后兼容旧数据)。失败不抛异常,以免阻塞登录流程。
+     */
+    private UUID resolveDefaultAppId(UUID tenantId) {
+        if (tenantId == null) {
+            return null;
+        }
+        try {
+            SysApplication app = applicationService
+                    .getByTenantAndCode(tenantId, "default");
+            return app != null ? app.getId() : null;
+        } catch (Exception ex) {
+            log.debug("resolveDefaultAppId: no default app for tenant={}: {}",
+                    tenantId, ex.getMessage());
+            return null;
+        }
     }
 
     /**
