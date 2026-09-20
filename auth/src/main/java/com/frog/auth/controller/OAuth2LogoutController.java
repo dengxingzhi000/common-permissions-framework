@@ -46,6 +46,7 @@ public class OAuth2LogoutController {
 
     @PostMapping("/logout")
     @PreAuthorize("isAuthenticated()")
+    @AuditLog(operation = "OAuth2 单客户端登出", businessType = "USER", riskLevel = 2)
     @Operation(summary = "OAuth2 单客户端撤销", description = "撤销当前用户在该客户端的 OAuth2 授权")
     public ApiResults<Void> revokeByClient(
             HttpServletRequest request,

@@ -40,7 +40,6 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
             throw new BusinessException(4004, "OAuth2 授权未找到");
         }
         authorizationService.remove(authorization);
-        auditLogService.recordLogout(callerUserId, "OAuth2 单客户端登出: clientId=" + clientId);
         log.info("OAuth2 single-client revocation: userId={} clientId={}", callerUserId, clientId);
     }
 

@@ -55,7 +55,7 @@ class OAuth2LogoutServiceImplTest {
     }
 
     @Test
-    void revokeByClient_happyPath_removesAuthorizationAndAudits() {
+    void revokeByClient_happyPath_removesAuthorization() {
         when(jwtUtils.getUserIdFromToken(accessToken)).thenReturn(callerUserId);
         OAuth2Authorization auth = givenAuth();
         when(authorizationService.findByToken(accessToken, OAuth2TokenType.ACCESS_TOKEN))
@@ -64,7 +64,7 @@ class OAuth2LogoutServiceImplTest {
         service.revokeByClient(accessToken, clientId, callerUserId);
 
         verify(authorizationService).remove(auth);
-        verify(auditLogService).recordLogout(eq(callerUserId), anyString());
+        verify(auditLogService, never()).recordLogout(any(), any());
     }
 
     @Test
