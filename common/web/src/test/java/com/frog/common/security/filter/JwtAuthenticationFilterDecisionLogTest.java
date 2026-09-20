@@ -30,8 +30,11 @@ class JwtAuthenticationFilterDecisionLogTest {
         JwtUtils jwtUtils = mock(JwtUtils.class);
         when(jwtUtils.validateToken(any(), any(), any())).thenReturn(false);
 
+        HttpServletRequestUtils reqUtils = mock(HttpServletRequestUtils.class);
+        when(reqUtils.getTokenFromRequest(any())).thenReturn("fake");
+
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
-                jwtUtils, mock(HttpServletRequestUtils.class),
+                jwtUtils, reqUtils,
                 mock(SecurityMetrics.class), recorder,
                 mock(UserRevocationService.class));
 
