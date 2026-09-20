@@ -68,6 +68,9 @@ public class IdentityPropagationWebFilter implements WebFilter, Ordered {
 
         String username = getClaim(token, properties.getUsernameClaim());
         String deviceId = getClaim(token, properties.getDeviceIdClaim());
+        // Phase 1.5 — 提取 tenant_id / app_id
+        String tenantId = getClaim(token, properties.getTenantIdClaim());
+        String appId = getClaim(token, properties.getAppIdClaim());
         List<String> authorities = extractAuthorities(authentication);
 
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -75,6 +78,8 @@ public class IdentityPropagationWebFilter implements WebFilter, Ordered {
         payload.put("userId", userId);
         payload.put("username", username);
         payload.put("deviceId", deviceId);
+        payload.put("tenantId", tenantId);
+        payload.put("appId", appId);
         payload.put("authorities", authorities);
         payload.put("issuedAt", Instant.now().getEpochSecond());
         payload.put("jti", UUIDv7Util.generate().toString());
@@ -93,6 +98,13 @@ public class IdentityPropagationWebFilter implements WebFilter, Ordered {
                     }
                     if (!authorities.isEmpty()) {
                         headers.set(properties.getRolesHeader(), String.join(",", authorities));
+                    }
+                    // Phase 1.5 — 下游显式 X-Tenant-Id / X-App-Id
+                    if (StringUtils.hasText(tenantId)) {
+                        headers.set(properties.getTenantIdHeader(), tenantId);
+                    }
+                    if (StringUtils.hasText(appId)) {
+                        headers.set(properties.getAppIdHeader(), appId);
                     }
                 })
                 .build();
