@@ -23,6 +23,7 @@
         <module>system/service</module>
         <module>auth</module>
         <module>gateway</module>
+        <module>sdk-java</module>
     </modules>
 
     <parent>
