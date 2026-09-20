@@ -125,6 +125,10 @@ public class SecurityConfig {
                 // 6️⃣ 授权规则
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/v1/api/auth/login",
+                                "/v1/api/auth/register",
+                                "/v1/api/auth/refresh",
+                                "/v1/api/auth/logout",
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/auth/refresh",

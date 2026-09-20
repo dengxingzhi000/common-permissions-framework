@@ -37,7 +37,7 @@ import java.util.UUID;
  * @version 1.0
  */
 @RestController
-@RequestMapping("/api/system/users")
+@RequestMapping("/v1/api/system/users")
 @RequiredArgsConstructor
 @Tag(name = "用户模块", description = "系统用户管理相关接口，包括用户的增删改查、角色授权、密码管理等功能")
 public class SysUserController {

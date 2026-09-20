@@ -28,7 +28,7 @@ import java.util.UUID;
  * @since 2025-11-03
  */
 @RestController
-@RequestMapping("/api/system/approvals")
+@RequestMapping("/v1/api/system/approvals")
 @RequiredArgsConstructor
 @Tag(name = "权限审批模块", description = "权限申请审批流程相关接口，包括申请提交、审批处理、申请撤回等功能")
 public class SysPermissionApprovalController {

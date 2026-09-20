@@ -50,6 +50,7 @@ public class IdentityTokenVerificationWebFilter implements WebFilter, Ordered {
     private static final AntPathMatcher MATCHER = new AntPathMatcher();
 
     private static final List<String> WHITELIST = List.of(
+            "/v1/api/auth/**",
             "/api/auth/**",
             "/oauth2/**",
             "/api/public/**",

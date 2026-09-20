@@ -42,7 +42,7 @@ import java.util.UUID;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/api/auth/webauthn")
+@RequestMapping("/v1/api/auth/webauthn")
 @RequiredArgsConstructor
 @Tag(
         name = "WebAuthn 凭证管理",

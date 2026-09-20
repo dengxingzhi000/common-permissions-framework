@@ -36,6 +36,10 @@ public class IdentityTokenVerificationFilter extends OncePerRequestFilter {
     private static final AntPathMatcher MATCHER = new AntPathMatcher();
 
     private static final List<String> WHITELIST = List.of(
+            "/v1/api/auth/login",
+            "/v1/api/auth/register",
+            "/v1/api/auth/refresh",
+            "/v1/api/auth/logout",
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",

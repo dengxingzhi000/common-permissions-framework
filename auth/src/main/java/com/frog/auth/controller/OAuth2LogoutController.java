@@ -36,7 +36,7 @@ import java.util.UUID;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/oauth2")
+@RequestMapping("/v1/oauth2")
 @RequiredArgsConstructor
 @Tag(name = "OAuth2 登出", description = "OAuth2 授权撤销管理")
 public class OAuth2LogoutController {

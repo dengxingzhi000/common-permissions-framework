@@ -26,7 +26,7 @@ import java.util.UUID;
  * @since 2025-11-07
  */
 @RestController
-@RequestMapping("/api/system/depts")
+@RequestMapping("/v1/api/system/depts")
 @RequiredArgsConstructor
 @Tag(name = "部门管理", description = "组织架构部门管理相关接口，支持树形结构的部门增删改查")
 public class SysDeptController {

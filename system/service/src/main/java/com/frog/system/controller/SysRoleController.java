@@ -29,7 +29,7 @@ import java.util.UUID;
  * @version 1.0
  */
 @RestController
-@RequestMapping("/api/system/roles")
+@RequestMapping("/v1/api/system/roles")
 @RequiredArgsConstructor
 @Tag(name = "角色模块", description = "系统角色管理相关接口，包括角色的增删改查、权限分配等功能")
 public class SysRoleController {

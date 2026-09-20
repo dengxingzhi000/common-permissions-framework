@@ -27,7 +27,7 @@ import java.util.UUID;
  * @version 1.0
  */
 @RestController
-@RequestMapping("/api/system/permissions")
+@RequestMapping("/v1/api/system/permissions")
 @RequiredArgsConstructor
 @Tag(name = "权限模块", description = "系统权限管理相关接口，包括权限的增删改查、权限树查询、API权限映射等功能")
 public class SysPermissionController {
