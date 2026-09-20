@@ -4,6 +4,7 @@ import com.frog.common.security.decision.DecisionEvent;
 import com.frog.common.security.decision.DecisionRecorder;
 import com.frog.common.security.decision.DecisionRecorderProperties;
 import com.frog.common.security.metrics.SecurityMetrics;
+import com.frog.common.security.revocation.UserRevocationService;
 import com.frog.common.security.util.HttpServletRequestUtils;
 import com.frog.common.security.util.JwtUtils;
 import com.frog.common.security.util.SecurityErrorResponseWriter;
@@ -31,7 +32,8 @@ class JwtAuthenticationFilterDecisionLogTest {
 
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
                 jwtUtils, mock(HttpServletRequestUtils.class),
-                mock(SecurityMetrics.class), recorder);
+                mock(SecurityMetrics.class), recorder,
+                mock(UserRevocationService.class));
 
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/api/test");
         req.addHeader("Authorization", "Bearer fake");

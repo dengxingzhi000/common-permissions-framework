@@ -1,6 +1,6 @@
 package com.frog.system.api;
 
-import com.frog.system.domain.entity.SysRegisteredClient;
+import com.frog.common.security.oauth2.SysRegisteredClientDTO;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -12,6 +12,10 @@ import java.util.UUID;
  * 以便 {@code common/web} 中的 {@code TenantRegisteredClientRepository}
  * 能直接引用本接口而不破坏模块依赖方向(
  * {@code common/*} MUST NOT depend on {@code system/service})。
+ *
+ * <p>接口契约使用 {@link SysRegisteredClientDTO}(位于
+ * {@code common/security-api}),而不暴露持久化实体 —
+ * 这避免了 {@code common/*} → {@code system/service} 的反向依赖环。
  *
  * <p>Dubbo 调用方通过 {@code @DubboReference} 获取代理;
  * Spring 直接调用方通过构造函数注入。
@@ -26,27 +30,27 @@ public interface ISysRegisteredClientService {
      *
      * <p>不抛异常,未找到时返回 {@link Optional#empty()}。
      */
-    Optional<SysRegisteredClient> findOptionalByClientId(String clientId);
+    Optional<SysRegisteredClientDTO> findOptionalByClientId(String clientId);
 
     /**
      * 根据 OAuth2 client_id 查询;未找到返回 {@code null}。
      */
-    SysRegisteredClient findByClientId(String clientId);
+    SysRegisteredClientDTO findByClientId(String clientId);
 
     /**
      * 根据租户 ID + client_id 查询。
      */
-    SysRegisteredClient findByTenantAndClientId(UUID tenantId, String clientId);
+    SysRegisteredClientDTO findByTenantAndClientId(UUID tenantId, String clientId);
 
     /**
      * 新增客户端。
      */
-    SysRegisteredClient addClient(SysRegisteredClient client);
+    SysRegisteredClientDTO addClient(SysRegisteredClientDTO client);
 
     /**
      * 修改客户端。
      */
-    SysRegisteredClient updateClient(SysRegisteredClient client);
+    SysRegisteredClientDTO updateClient(SysRegisteredClientDTO client);
 
     /**
      * 软删除客户端。

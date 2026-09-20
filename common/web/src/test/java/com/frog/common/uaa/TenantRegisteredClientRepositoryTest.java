@@ -1,7 +1,7 @@
 package com.frog.common.uaa;
 
+import com.frog.common.security.oauth2.SysRegisteredClientDTO;
 import com.frog.system.api.ISysRegisteredClientService;
-import com.frog.system.domain.entity.SysRegisteredClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,25 +34,26 @@ class TenantRegisteredClientRepositoryTest {
     @InjectMocks
     private TenantRegisteredClientRepository repository;
 
-    private SysRegisteredClient activeRecord;
+    private SysRegisteredClientDTO activeRecord;
 
     @BeforeEach
     void setUp() {
         UUID id = UUID.randomUUID();
-        activeRecord = new SysRegisteredClient();
-        activeRecord.setId(id);
-        activeRecord.setTenantId(UUID.randomUUID());
-        activeRecord.setClientId("erp-web");
-        activeRecord.setClientSecretHash("hash");
-        activeRecord.setClientAuthMethods(new String[]{"client_secret_basic"});
-        activeRecord.setGrantTypes(new String[]{"authorization_code", "refresh_token"});
-        activeRecord.setRedirectUris(new String[]{"http://localhost/callback"});
-        activeRecord.setScopes(new String[]{"openid", "user.read"});
-        activeRecord.setRequireAuthorizationConsent(false);
-        activeRecord.setRequireProofKey(false);
-        activeRecord.setAccessTokenTtlSeconds(7200);
-        activeRecord.setRefreshTokenTtlSeconds(604800);
-        activeRecord.setStatus(1);
+        activeRecord = SysRegisteredClientDTO.builder()
+                .id(id)
+                .tenantId(UUID.randomUUID())
+                .clientId("erp-web")
+                .clientSecretHash("hash")
+                .clientAuthMethods(new String[]{"client_secret_basic"})
+                .grantTypes(new String[]{"authorization_code", "refresh_token"})
+                .redirectUris(new String[]{"http://localhost/callback"})
+                .scopes(new String[]{"openid", "user.read"})
+                .requireAuthorizationConsent(false)
+                .requireProofKey(false)
+                .accessTokenTtlSeconds(7200)
+                .refreshTokenTtlSeconds(604800)
+                .status(1)
+                .build();
     }
 
     @Test

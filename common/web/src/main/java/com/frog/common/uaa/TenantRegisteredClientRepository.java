@@ -1,7 +1,7 @@
 package com.frog.common.uaa;
 
+import com.frog.common.security.oauth2.SysRegisteredClientDTO;
 import com.frog.system.api.ISysRegisteredClientService;
-import com.frog.system.domain.entity.SysRegisteredClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -55,7 +55,7 @@ public class TenantRegisteredClientRepository implements RegisteredClientReposit
         if (!StringUtils.hasText(id)) {
             return null;
         }
-        Optional<SysRegisteredClient> record = clientService
+        Optional<SysRegisteredClientDTO> record = clientService
                 .findOptionalByClientId(id);
         if (record.isEmpty()) {
             log.debug("RegisteredClient not found by id={}", id);
@@ -69,26 +69,27 @@ public class TenantRegisteredClientRepository implements RegisteredClientReposit
         if (!StringUtils.hasText(clientId)) {
             return null;
         }
-        SysRegisteredClient record = clientService.findByClientId(clientId);
+        SysRegisteredClientDTO record = clientService.findByClientId(clientId);
         if (record == null) {
             log.debug("RegisteredClient not found by clientId={}", clientId);
             return null;
         }
-        if (!record.isActive()) {
+        Integer status = record.getStatus();
+        if (status == null || status != 1) {
             log.warn("RegisteredClient is disabled: clientId={}, status={}",
-                    clientId, record.getStatus());
+                    clientId, status);
             return null;
         }
         return toRegisteredClient(record);
     }
 
     /**
-     * DB 实体 → Spring Authorization Server {@link RegisteredClient}。
+     * DB DTO → Spring Authorization Server {@link RegisteredClient}。
      *
-     * <p>字段映射严格遵循 {@code SysRegisteredClient} 与
+     * <p>字段映射严格遵循 {@code SysRegisteredClientDTO} 与
      * {@code RegisteredClient.Builder} 的对应关系。
      */
-    RegisteredClient toRegisteredClient(SysRegisteredClient src) {
+    RegisteredClient toRegisteredClient(SysRegisteredClientDTO src) {
         RegisteredClient.Builder builder = RegisteredClient.withId(src.getId().toString())
                 .clientId(src.getClientId())
                 .clientSecret(src.getClientSecretHash() == null ? "" : src.getClientSecretHash());

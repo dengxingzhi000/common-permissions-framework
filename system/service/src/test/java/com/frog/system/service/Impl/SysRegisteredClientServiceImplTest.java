@@ -1,6 +1,7 @@
 package com.frog.system.service.Impl;
 
 import com.frog.common.exception.BusinessException;
+import com.frog.common.security.oauth2.SysRegisteredClientDTO;
 import com.frog.system.domain.entity.SysRegisteredClient;
 import com.frog.system.mapper.SysRegisteredClientMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,10 @@ import static org.mockito.Mockito.when;
 
 /**
  * SysRegisteredClientServiceImpl unit tests — Phase 1.4.
+ *
+ * <p>对外契约在 Phase 1.4 之后改为 {@link SysRegisteredClientDTO},
+ * 因此 service 输入/输出断言使用 DTO;内部 mapper 仍使用
+ * {@link SysRegisteredClient} 实体,所以 mapper mock 参数仍是实体。
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SysRegisteredClientServiceImpl Tests")
@@ -35,30 +40,52 @@ class SysRegisteredClientServiceImplTest {
     private SysRegisteredClientServiceImpl clientService;
 
     private UUID tenantId;
-    private SysRegisteredClient sample;
+    private SysRegisteredClient sampleEntity;
+    private SysRegisteredClientDTO sampleDto;
 
     @BeforeEach
     void setUp() {
         tenantId = UUID.randomUUID();
-        sample = new SysRegisteredClient();
-        sample.setId(UUID.randomUUID());
-        sample.setTenantId(tenantId);
-        sample.setClientId("erp-web");
-        sample.setClientSecretHash("hash");
-        sample.setStatus(1);
-        sample.setAccessTokenTtlSeconds(7200);
-        sample.setRefreshTokenTtlSeconds(604800);
+        UUID id = UUID.randomUUID();
+
+        sampleEntity = new SysRegisteredClient();
+        sampleEntity.setId(id);
+        sampleEntity.setTenantId(tenantId);
+        sampleEntity.setClientId("erp-web");
+        sampleEntity.setClientSecretHash("hash");
+        sampleEntity.setStatus(1);
+        sampleEntity.setAccessTokenTtlSeconds(7200);
+        sampleEntity.setRefreshTokenTtlSeconds(604800);
+
+        sampleDto = SysRegisteredClientDTO.builder()
+                .id(id)
+                .tenantId(tenantId)
+                .clientId("erp-web")
+                .clientSecretHash("hash")
+                .status(1)
+                .accessTokenTtlSeconds(7200)
+                .refreshTokenTtlSeconds(604800)
+                .build();
     }
 
     @Test
-    @DisplayName("findByClientId — delegates to mapper")
+    @DisplayName("findByClientId — delegates to mapper and maps to DTO")
     void findByClientId_delegates() {
-        when(clientMapper.findByClientId("erp-web")).thenReturn(sample);
+        when(clientMapper.findByClientId("erp-web")).thenReturn(sampleEntity);
 
-        SysRegisteredClient result = clientService.findByClientId("erp-web");
+        SysRegisteredClientDTO result = clientService.findByClientId("erp-web");
 
         assertThat(result).isNotNull();
         assertThat(result.getClientId()).isEqualTo("erp-web");
+        assertThat(result.getId()).isEqualTo(sampleEntity.getId());
+    }
+
+    @Test
+    @DisplayName("findByClientId — null when missing")
+    void findByClientId_null() {
+        when(clientMapper.findByClientId("ghost")).thenReturn(null);
+
+        assertThat(clientService.findByClientId("ghost")).isNull();
     }
 
     @Test
@@ -72,8 +99,9 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("addClient — rejects when tenantId missing")
     void addClient_rejectsMissingTenant() {
-        SysRegisteredClient input = new SysRegisteredClient();
-        input.setClientId("crm-web");
+        SysRegisteredClientDTO input = SysRegisteredClientDTO.builder()
+                .clientId("crm-web")
+                .build();
 
         assertThatThrownBy(() -> clientService.addClient(input))
                 .isInstanceOf(BusinessException.class)
@@ -85,8 +113,9 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("addClient — rejects when clientId missing")
     void addClient_rejectsMissingClientId() {
-        SysRegisteredClient input = new SysRegisteredClient();
-        input.setTenantId(tenantId);
+        SysRegisteredClientDTO input = SysRegisteredClientDTO.builder()
+                .tenantId(tenantId)
+                .build();
 
         assertThatThrownBy(() -> clientService.addClient(input))
                 .isInstanceOf(BusinessException.class)
@@ -98,11 +127,12 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("addClient — rejects when clientId already exists")
     void addClient_rejectsDuplicate() {
-        SysRegisteredClient input = new SysRegisteredClient();
-        input.setTenantId(tenantId);
-        input.setClientId("dup");
+        SysRegisteredClientDTO input = SysRegisteredClientDTO.builder()
+                .tenantId(tenantId)
+                .clientId("dup")
+                .build();
 
-        when(clientMapper.findByClientId("dup")).thenReturn(sample);
+        when(clientMapper.findByClientId("dup")).thenReturn(sampleEntity);
 
         assertThatThrownBy(() -> clientService.addClient(input))
                 .isInstanceOf(BusinessException.class)
@@ -114,9 +144,10 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("addClient — assigns id + defaults when missing")
     void addClient_assignsDefaults() {
-        SysRegisteredClient input = new SysRegisteredClient();
-        input.setTenantId(tenantId);
-        input.setClientId("crm-web");
+        SysRegisteredClientDTO input = SysRegisteredClientDTO.builder()
+                .tenantId(tenantId)
+                .clientId("crm-web")
+                .build();
 
         when(clientMapper.findByClientId("crm-web")).thenReturn(null);
         when(clientMapper.insert(any(SysRegisteredClient.class))).thenAnswer(inv -> {
@@ -136,15 +167,17 @@ class SysRegisteredClientServiceImplTest {
     }
 
     @Test
-    @DisplayName("updateClient — nulls tenantId + clientId to preserve identity")
+    @DisplayName("updateClient — preserves identity fields, updates mutable ones")
     void updateClient_preservesIdentity() {
-        SysRegisteredClient patch = new SysRegisteredClient();
-        patch.setId(sample.getId());
-        patch.setClientSecretHash("new-hash");
+        SysRegisteredClientDTO patch = SysRegisteredClientDTO.builder()
+                .id(sampleEntity.getId())
+                .clientSecretHash("new-hash")
+                .build();
 
-        when(clientMapper.selectById(sample.getId())).thenReturn(sample);
+        when(clientMapper.selectById(sampleEntity.getId()))
+                .thenReturn(sampleEntity)
+                .thenReturn(sampleEntity);
         when(clientMapper.updateById(any(SysRegisteredClient.class))).thenReturn(1);
-        when(clientMapper.selectById(sample.getId())).thenReturn(sample);
 
         clientService.updateClient(patch);
 
@@ -154,10 +187,12 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("updateClient — throws when missing")
     void updateClient_throwsWhenMissing() {
-        SysRegisteredClient patch = new SysRegisteredClient();
-        patch.setId(UUID.randomUUID());
+        UUID missingId = UUID.randomUUID();
+        SysRegisteredClientDTO patch = SysRegisteredClientDTO.builder()
+                .id(missingId)
+                .build();
 
-        when(clientMapper.selectById(patch.getId())).thenReturn(null);
+        when(clientMapper.selectById(missingId)).thenReturn(null);
 
         assertThatThrownBy(() -> clientService.updateClient(patch))
                 .isInstanceOf(BusinessException.class);
@@ -166,22 +201,22 @@ class SysRegisteredClientServiceImplTest {
     @Test
     @DisplayName("deleteClient — soft-deletes by id")
     void deleteClient_delegates() {
-        when(clientMapper.selectById(sample.getId())).thenReturn(sample);
-        when(clientMapper.deleteById(sample.getId())).thenReturn(1);
+        when(clientMapper.selectById(sampleEntity.getId())).thenReturn(sampleEntity);
+        when(clientMapper.deleteById(sampleEntity.getId())).thenReturn(1);
 
-        clientService.deleteClient(sample.getId());
+        clientService.deleteClient(sampleEntity.getId());
 
-        verify(clientMapper).deleteById(sample.getId());
+        verify(clientMapper).deleteById(sampleEntity.getId());
     }
 
     @Test
     @DisplayName("SysRegisteredClient.isActive — true when status==1")
     void entityIsActive() {
-        sample.setStatus(1);
-        assertThat(sample.isActive()).isTrue();
-        sample.setStatus(0);
-        assertThat(sample.isActive()).isFalse();
-        sample.setStatus(null);
-        assertThat(sample.isActive()).isFalse();
+        sampleEntity.setStatus(1);
+        assertThat(sampleEntity.isActive()).isTrue();
+        sampleEntity.setStatus(0);
+        assertThat(sampleEntity.isActive()).isFalse();
+        sampleEntity.setStatus(null);
+        assertThat(sampleEntity.isActive()).isFalse();
     }
 }

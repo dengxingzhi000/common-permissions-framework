@@ -2,6 +2,7 @@ package com.frog.system.service.Impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.frog.common.exception.BusinessException;
+import com.frog.common.security.oauth2.SysRegisteredClientDTO;
 import com.frog.common.util.UUIDv7Util;
 import com.frog.system.api.ISysRegisteredClientService;
 import com.frog.system.domain.entity.SysRegisteredClient;
@@ -22,6 +23,10 @@ import java.util.UUID;
  * <p>实现 {@link ISysRegisteredClientService},该接口位于
  * {@code system/api} 模块,便于 {@code common/web} 引用。
  *
+ * <p>对外契约使用 {@link SysRegisteredClientDTO}(位于
+ * {@code common/security-api});持久化与映射在服务内部完成,
+ * 维持 {@code common/*} 不依赖 {@code system/service}。
+ *
  * <p>同时暴露为 Dubbo 服务,供跨进程消费方(如 {@code auth} 模块的
  * {@code AuthorizationServerConfig})通过 {@code @DubboReference} 注入。
  *
@@ -39,24 +44,26 @@ public class SysRegisteredClientServiceImpl
     private final SysRegisteredClientMapper clientMapper;
 
     @Override
-    public Optional<SysRegisteredClient> findOptionalByClientId(String clientId) {
-        return clientMapper.findOptionalByClientId(clientId);
+    public Optional<SysRegisteredClientDTO> findOptionalByClientId(String clientId) {
+        return clientMapper.findOptionalByClientId(clientId).map(this::toDto);
     }
 
     @Override
-    public SysRegisteredClient findByClientId(String clientId) {
-        return clientMapper.findByClientId(clientId);
+    public SysRegisteredClientDTO findByClientId(String clientId) {
+        SysRegisteredClient entity = clientMapper.findByClientId(clientId);
+        return entity == null ? null : toDto(entity);
     }
 
     @Override
-    public SysRegisteredClient findByTenantAndClientId(UUID tenantId, String clientId) {
-        return clientMapper.findByTenantAndClientId(tenantId, clientId);
+    public SysRegisteredClientDTO findByTenantAndClientId(UUID tenantId, String clientId) {
+        SysRegisteredClient entity = clientMapper.findByTenantAndClientId(tenantId, clientId);
+        return entity == null ? null : toDto(entity);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = "registeredClient", allEntries = true)
-    public SysRegisteredClient addClient(SysRegisteredClient client) {
+    public SysRegisteredClientDTO addClient(SysRegisteredClientDTO client) {
         if (client.getTenantId() == null) {
             throw new BusinessException("租户ID不能为空");
         }
@@ -66,44 +73,56 @@ public class SysRegisteredClientServiceImpl
         if (clientMapper.findByClientId(client.getClientId()) != null) {
             throw new BusinessException("client_id 已存在(全局唯一): " + client.getClientId());
         }
-        if (client.getId() == null) {
-            client.setId(UUIDv7Util.generate());
+
+        SysRegisteredClient entity = toEntity(client);
+        if (entity.getId() == null) {
+            entity.setId(UUIDv7Util.generate());
         }
-        if (client.getStatus() == null) {
-            client.setStatus(1);
+        if (entity.getStatus() == null) {
+            entity.setStatus(1);
         }
-        if (client.getAccessTokenTtlSeconds() == null) {
-            client.setAccessTokenTtlSeconds(7200);
+        if (entity.getAccessTokenTtlSeconds() == null) {
+            entity.setAccessTokenTtlSeconds(7200);
         }
-        if (client.getRefreshTokenTtlSeconds() == null) {
-            client.setRefreshTokenTtlSeconds(604800);
+        if (entity.getRefreshTokenTtlSeconds() == null) {
+            entity.setRefreshTokenTtlSeconds(604800);
         }
-        if (client.getRequireAuthorizationConsent() == null) {
-            client.setRequireAuthorizationConsent(false);
+        if (entity.getRequireAuthorizationConsent() == null) {
+            entity.setRequireAuthorizationConsent(false);
         }
-        if (client.getRequireProofKey() == null) {
-            client.setRequireProofKey(false);
+        if (entity.getRequireProofKey() == null) {
+            entity.setRequireProofKey(false);
         }
-        clientMapper.insert(client);
+        clientMapper.insert(entity);
         log.info("RegisteredClient created: tenantId={}, clientId={}, id={}",
-                client.getTenantId(), client.getClientId(), client.getId());
-        return client;
+                entity.getTenantId(), entity.getClientId(), entity.getId());
+        return toDto(entity);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = "registeredClient", allEntries = true)
-    public SysRegisteredClient updateClient(SysRegisteredClient client) {
+    public SysRegisteredClientDTO updateClient(SysRegisteredClientDTO client) {
         SysRegisteredClient existing = clientMapper.selectById(client.getId());
         if (existing == null) {
             throw new BusinessException("客户端不存在: " + client.getId());
         }
         // 不可修改 (tenantId, clientId)
-        client.setTenantId(null);
-        client.setClientId(null);
-        clientMapper.updateById(client);
-        log.info("RegisteredClient updated: id={}", client.getId());
-        return clientMapper.selectById(client.getId());
+        existing.setClientSecretHash(client.getClientSecretHash());
+        existing.setClientAuthMethods(client.getClientAuthMethods());
+        existing.setGrantTypes(client.getGrantTypes());
+        existing.setRedirectUris(client.getRedirectUris());
+        existing.setPostLogoutRedirectUris(client.getPostLogoutRedirectUris());
+        existing.setScopes(client.getScopes());
+        existing.setRequireAuthorizationConsent(client.getRequireAuthorizationConsent());
+        existing.setRequireProofKey(client.getRequireProofKey());
+        existing.setAccessTokenTtlSeconds(client.getAccessTokenTtlSeconds());
+        existing.setRefreshTokenTtlSeconds(client.getRefreshTokenTtlSeconds());
+        existing.setStatus(client.getStatus());
+        clientMapper.updateById(existing);
+        log.info("RegisteredClient updated: id={}", existing.getId());
+        SysRegisteredClient reloaded = clientMapper.selectById(existing.getId());
+        return reloaded == null ? null : toDto(reloaded);
     }
 
     @Override
@@ -116,5 +135,60 @@ public class SysRegisteredClientServiceImpl
         }
         clientMapper.deleteById(id);
         log.info("RegisteredClient deleted: id={}", id);
+    }
+
+    /**
+     * 实体 → DTO。{@code audit} / {@code deleted} 不暴露给 API 表面。
+     */
+    private SysRegisteredClientDTO toDto(SysRegisteredClient entity) {
+        if (entity == null) {
+            return null;
+        }
+        return SysRegisteredClientDTO.builder()
+                .id(entity.getId())
+                .tenantId(entity.getTenantId())
+                .applicationId(entity.getApplicationId())
+                .clientId(entity.getClientId())
+                .clientSecretHash(entity.getClientSecretHash())
+                .clientAuthMethods(entity.getClientAuthMethods())
+                .grantTypes(entity.getGrantTypes())
+                .redirectUris(entity.getRedirectUris())
+                .postLogoutRedirectUris(entity.getPostLogoutRedirectUris())
+                .scopes(entity.getScopes())
+                .requireAuthorizationConsent(entity.getRequireAuthorizationConsent())
+                .requireProofKey(entity.getRequireProofKey())
+                .accessTokenTtlSeconds(entity.getAccessTokenTtlSeconds())
+                .refreshTokenTtlSeconds(entity.getRefreshTokenTtlSeconds())
+                .status(entity.getStatus())
+                .createTime(entity.getCreateTime())
+                .updateTime(entity.getUpdateTime())
+                .build();
+    }
+
+    /**
+     * DTO → 实体(仅写入路径使用)。{@code audit} 初始为 null,
+     * {@code createTime}/{@code updateTime} 由 MyBatis-Plus 字段填充策略写入。
+     */
+    private SysRegisteredClient toEntity(SysRegisteredClientDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        SysRegisteredClient entity = new SysRegisteredClient();
+        entity.setId(dto.getId());
+        entity.setTenantId(dto.getTenantId());
+        entity.setApplicationId(dto.getApplicationId());
+        entity.setClientId(dto.getClientId());
+        entity.setClientSecretHash(dto.getClientSecretHash());
+        entity.setClientAuthMethods(dto.getClientAuthMethods());
+        entity.setGrantTypes(dto.getGrantTypes());
+        entity.setRedirectUris(dto.getRedirectUris());
+        entity.setPostLogoutRedirectUris(dto.getPostLogoutRedirectUris());
+        entity.setScopes(dto.getScopes());
+        entity.setRequireAuthorizationConsent(dto.getRequireAuthorizationConsent());
+        entity.setRequireProofKey(dto.getRequireProofKey());
+        entity.setAccessTokenTtlSeconds(dto.getAccessTokenTtlSeconds());
+        entity.setRefreshTokenTtlSeconds(dto.getRefreshTokenTtlSeconds());
+        entity.setStatus(dto.getStatus());
+        return entity;
     }
 }
