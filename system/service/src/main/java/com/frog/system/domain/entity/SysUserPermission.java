@@ -27,6 +27,9 @@ public class SysUserPermission {
     @TableField("permission_id")
     private UUID permissionId;
 
+    @TableField("tenant_id")
+    private UUID tenantId;
+
     @TableField("effective_time")
     private LocalDateTime effectiveTime;
 

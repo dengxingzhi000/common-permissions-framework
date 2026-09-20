@@ -41,6 +41,10 @@ public class SysUserRole implements Serializable {
     @Schema(description = "角色 ID")
     private UUID roleId;
 
+    @Schema(description = "租户 ID(Phase 1.2; NULL 兼容 legacy)")
+    @TableField("tenant_id")
+    private UUID tenantId;
+
     @Schema(description = "生效时间(临时授权)")
     private LocalDateTime effectiveTime;
 

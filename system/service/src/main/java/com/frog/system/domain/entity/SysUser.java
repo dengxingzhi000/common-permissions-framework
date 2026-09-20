@@ -75,6 +75,10 @@ public class SysUser implements Serializable {
     @TableField("dept_id")
     private UUID deptId;
 
+    @Schema(description = "租户 ID(Phase 1.2; NULL 兼容 legacy 单租户数据)")
+    @TableField("tenant_id")
+    private UUID tenantId;
+
     @Schema(description = "用户级别:1-普通,2-高级,3-VIP")
     @TableField("user_level")
     private Integer userLevel;

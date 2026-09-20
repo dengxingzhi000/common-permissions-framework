@@ -88,6 +88,10 @@ public class SysPermission implements Serializable {
     @Schema(description = "状态")
     private Integer status;
 
+    @Schema(description = "租户 ID(Phase 1.2; NULL 兼容 legacy)")
+    @TableField("tenant_id")
+    private UUID tenantId;
+
     @Schema(description = "创建时间")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
