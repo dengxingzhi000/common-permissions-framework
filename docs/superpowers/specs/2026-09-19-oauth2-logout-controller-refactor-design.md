@@ -17,7 +17,7 @@
 1. **职责越界** — 控制器内联了 header 解析、token 校验、分支逻辑、存储调用、审计,**85 行中只有 ~12 行是真正的 HTTP 边界代码**。`SysAuthController` 已经走 `ISysAuthService` 分层,本控制器却绕过服务层直接持有 `OAuth2AuthorizationService` 与 `JwtUtils`,与同模块风格不一致。
 2. **权限边界过粗** — 整个端点统一使用 `@PreAuthorize("isAuthenticated()")`,不区分"撤销自己的某个客户端会话"与"撤销用户全部 OAuth2 授权"。后者属于管理员操作,不应允许任何已登录用户触发。
 3. **`clientId` 参数被忽略** — 参数只作为分支标志(传入即走单客户端、未传入即走全局),从未用于过滤。当前是 bug。
-4. **全局分支越权调用** — `OAuth2LogoutController:79` 调用 `jwtUtils.revokeAllUserTokens(userId)` 清理了 `JwtUtils`+Redis 存储,而 `/oauth2/logout` 语义上属于 OAuth2 授权服务器撤销端点,只应清理 `OAuth2AuthorizationService` 存储。
+4. **全局分支越权调用** — `OAuth2LogoutController:79` 调用 `jwtUtils.revokeAllUserTokens(userId)` 清理了 `JwtUtils`+Redis 存储,而 `/v1/oauth2/logout` 语义上属于 OAuth2 授权服务器撤销端点,只应清理 `OAuth2AuthorizationService` 存储。
 5. **Spring `OAuth2AuthorizationService` 默认实现无"按 userId 查询"** — 标准接口(`InMemoryOAuth2AuthorizationService`)只暴露 `findByToken`/`findById`/`save`/`remove`,全局撤销只能靠遍历或者维护侧索引。
 6. **缺少审计** — `SysAuthController.logout()` 与 `forceLogout()` 都通过 `ISysAuditLogService.recordLogout` 写日志,本控制器无审计记录。
 
@@ -30,7 +30,7 @@
 | G3 | 权限分层 | 单客户端撤销 `isAuthenticated()`;全局撤销 `hasAuthority('oauth2:logout:global')` |
 | G4 | 引入 `oauth2:logout:global` 权限点 | 权限表 / 初始化脚本注册该权限 |
 | G5 | 全局登出真正清理 OAuth2 授权存储 | 通过 Redis 侧索引 + 装饰器模式实现 |
-| G6 | 端点拆分为两条路径 | `POST /oauth2/logout`(单客户端)、`POST /oauth2/logout/all`(全局) |
+| G6 | 端点拆分为两条路径 | `POST /v1/oauth2/logout`(单客户端)、`POST /v1/oauth2/logout/all`(全局) |
 | G7 | 写审计日志 | 单客户端 `riskLevel=2`,全局 `riskLevel=3` |
 
 ### 1.3 非目标 (Out of scope)
@@ -88,7 +88,7 @@ HTTP
 | `auth/src/test/java/com/frog/auth/service/Impl/OAuth2LogoutServiceImplTest.java` | **新增** | 单元测试 |
 | `auth/src/test/java/com/frog/auth/security/SideIndexingOAuth2AuthorizationServiceTest.java` | **新增** | 单元测试 |
 | `auth/src/test/java/com/frog/auth/controller/OAuth2LogoutControllerTest.java` | **新增** | `@WebMvcTest` |
-| 数据库 `sys_permission` 表初始化脚本 | **新增** | 注册 `oauth2:logout:global` 权限点 |
+| `system/service/src/main/resources/db/migration/V20260919_04__add_oauth2_logout_global_permission.sql` | **新增** | Flyway 迁移脚本(放在 `system/service` 而非 `auth`,沿用项目现有迁移目录约定);注册 `oauth2:logout:global` 权限点并授予 `ROLE_SUPER_ADMIN`(项目实际授予的角色;`RoleDTO` 强制 `^ROLE_[A-Z_]+$`) |
 
 ### 2.3 依赖关系
 
@@ -106,15 +106,15 @@ HTTP
 权限编码: oauth2:logout:global
 权限名称: OAuth2 全局登出
 权限类型: 按钮 / 接口级
-适用角色: ROLE_ADMIN (建议)
+适用角色: ROLE_SUPER_ADMIN (项目实际授予角色;`RoleDTO` 强制 `^ROLE_[A-Z_]+$`)
 ```
 
 ### 3.2 注解使用
 
 | 端点 | SpEL | 说明 |
 |---|---|---|
-| `POST /oauth2/logout` | `@PreAuthorize("isAuthenticated()")` | 调用者必须已登录;归属校验在 service 层 |
-| `POST /oauth2/logout/all` | `@PreAuthorize("hasAuthority('oauth2:logout:global')")` | 仅具备该权限的管理员可调用 |
+| `POST /v1/oauth2/logout` | `@PreAuthorize("isAuthenticated()")` | 调用者必须已登录;归属校验在 service 层 |
+| `POST /v1/oauth2/logout/all` | `@PreAuthorize("hasAuthority('oauth2:logout:global')")` | 仅具备该权限的管理员可调用 |
 
 ### 3.3 初始化脚本
 
@@ -126,7 +126,7 @@ VALUES (<uuid>, 'oauth2:logout:global', 'OAuth2 全局登出', 'button', 1, NOW(
 ON CONFLICT (perm_code) DO NOTHING;
 ```
 
-并将该权限授予 `ROLE_ADMIN` 角色(根据现有角色-权限关联表结构)。
+并将该权限授予 `ROLE_SUPER_ADMIN` 角色(根据现有角色-权限关联表结构与 `RoleDTO` 强制 `^ROLE_[A-Z_]+$` 的约定)。
 
 ---
 
@@ -303,8 +303,8 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
 
 | 端点 | 路径 | 注解 | 入参 | 出参 |
 |---|---|---|---|---|
-| 单客户端撤销 | `POST /oauth2/logout` | `@PreAuthorize("isAuthenticated()")` | `@RequestHeader("Authorization") String authHeader`<br>`@RequestParam("clientId") @NotBlank String clientId` | `ApiResults<Void>` |
-| 全局登出 | `POST /oauth2/logout/all` | `@PreAuthorize("hasAuthority('oauth2:logout:global')")` | `@AuthenticationPrincipal SecurityUser caller`<br>`@RequestParam("reason") @NotBlank String reason` | `ApiResults<Integer>` (清理条数) |
+| 单客户端撤销 | `POST /v1/oauth2/logout` | `@PreAuthorize("isAuthenticated()")` | `@RequestHeader("Authorization") String authHeader`<br>`@RequestParam("clientId") @NotBlank String clientId` | `ApiResults<Void>` |
+| 全局登出 | `POST /v1/oauth2/logout/all` | `@PreAuthorize("hasAuthority('oauth2:logout:global')")` | `@AuthenticationPrincipal SecurityUser caller`<br>`@RequestParam("reason") @NotBlank String reason` | `ApiResults<Integer>` (清理条数) |
 
 ### 6.2 控制器代码骨架
 
@@ -312,7 +312,7 @@ public class OAuth2LogoutServiceImpl implements IOAuth2LogoutService {
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/oauth2")
+@RequestMapping("/v1/oauth2")
 @RequiredArgsConstructor
 @Tag(name = "OAuth2 登出", description = "OAuth2 授权撤销管理")
 public class OAuth2LogoutController {
@@ -322,6 +322,7 @@ public class OAuth2LogoutController {
 
     @PostMapping("/logout")
     @PreAuthorize("isAuthenticated()")
+    @AuditLog(operation = "OAuth2 单客户端登出", businessType = "USER", riskLevel = 2)
     public ApiResults<Void> revokeByClient(
             HttpServletRequest request,
             @RequestParam("clientId") @NotBlank String clientId,
@@ -356,7 +357,7 @@ public class OAuth2LogoutController {
 - 使用 `HttpServletRequestUtils.getTokenFromHeader()` 替代手写的 `Bearer ` 前缀剥离(已在 `common/web`)。
 - 使用 `@AuthenticationPrincipal SecurityUser` 替代手动 `jwtUtils.getUserIdFromToken` 重复解析。
 - `clientId` 升级为 `@NotBlank` 必填参数,移除"用是否传入区分分支"的反模式。
-- 全局登出新增 `@AuditLog`(已在 `common/log` 提供 `@AuditLog` 注解)。
+- 单客户端登出新增 `@AuditLog(riskLevel=2)`,全局登出 `@AuditLog(riskLevel=3)`(均在 `common/log` 提供的 `@AuditLog` 注解中声明;满足 G7 风险等级要求)。
 
 ---
 
@@ -493,10 +494,10 @@ auth 模块当前注入的 `RedisTemplate` 类型需确认(在 `SysAuthServiceIm
 
 ### 9.3 手动验收
 
-1. 用 password grant 拿 access_token → `POST /oauth2/logout?clientId=internal-service` → 期望 200 + Redis 索引 -1 + 审计日志 1 条。
+1. 用 password grant 拿 access_token → `POST /v1/oauth2/logout?clientId=internal-service` → 期望 200 + Redis 索引 -1 + 审计日志 1 条。
 2. 用同一 access_token 调任意受保护接口 → 期望 401。
-3. 用 user A 的 token + user B 的 session → `POST /oauth2/logout?clientId=...` → 期望 4001。
-4. 用管理员账号(`oauth2:logout:global` 权限)调 `POST /oauth2/logout/all?userId=A&reason=test` → 期望 200 + 返回条数。
+3. 用 user A 的 token + user B 的 session → `POST /v1/oauth2/logout?clientId=...` → 期望 4001。
+4. 用管理员账号(`oauth2:logout:global` 权限)调 `POST /v1/oauth2/logout/all?userId=A&reason=test` → 期望 200 + 返回条数。
 5. 用非管理员账号调全局端点 → 期望 403。
 
 ---
@@ -505,9 +506,9 @@ auth 模块当前注入的 `RedisTemplate` 类型需确认(在 `SysAuthServiceIm
 
 ### 10.1 顺序
 
-1. 数据库迁移:注册 `oauth2:logout:global` 权限点(脚本可与本次代码变更一同发布,但权限点独立可灰度)。
-2. 代码部署:本次重构在单次提交内完成,无需灰度(接口路径对外保持兼容 —— 旧的 `POST /oauth2/logout?clientId=X` 仍是单客户端路径)。
-3. **旧调用方兼容**:本次保留 `POST /oauth2/logout` 单客户端路径,仅当 `clientId` 缺省时返回 400(因为新规则下 clientId 必填);全局部署前需确认前端已升级。
+1. 数据库迁移:注册 `oauth2:logout:global` 权限点(脚本位于 `system/service/src/main/resources/db/migration/`,沿用项目现有 Flyway 迁移目录;脚本可与本次代码变更一同发布,但权限点独立可灰度)。
+2. 代码部署:本次重构在单次提交内完成,无需灰度(接口路径对外保持兼容 —— 旧的 `POST /v1/oauth2/logout?clientId=X` 仍是单客户端路径)。
+3. **旧调用方兼容**:本次保留 `POST /v1/oauth2/logout` 单客户端路径,仅当 `clientId` 缺省时返回 400(因为新规则下 clientId 必填);全局部署前需确认前端已升级。
 
 ### 10.2 风险
 
@@ -516,7 +517,7 @@ auth 模块当前注入的 `RedisTemplate` 类型需确认(在 `SysAuthServiceIm
 | `@Primary` 装饰器 Bean 装配失败导致 `OAuth2AuthorizationService` 多实例 | 启动时 `@PostConstruct` 日志校验代理链;失败则 fail-fast |
 | `RedisTemplate<String, String>` 未声明导致注入失败 | 若 `RedisTemplate<String, Object>` 是唯一 Bean,装饰器内自行 cast 或新声明 |
 | 冷启动数据:旧授权不在索引里 | 已记录 MVP 限制,提示运维刷新 token |
-| 旧的 `POST /oauth2/logout` 不传 clientId 会被拒 | 在前端升级前,灰度期间可临时允许空 clientId 等价于"全端点"分支,本次不做兼容 |
+| 旧的 `POST /v1/oauth2/logout` 不传 clientId 会被拒 | 在前端升级前,灰度期间可临时允许空 clientId 等价于"全端点"分支,本次不做兼容 |
 
 ---
 
