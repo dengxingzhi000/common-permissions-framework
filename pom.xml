@@ -41,7 +41,7 @@
     <spring-cloud-alibaba.version>2025.1.0.0</spring-cloud-alibaba.version>
     <postgresql.version>42.6.0</postgresql.version>
     <mybatis-plus.version>3.5.15</mybatis-plus.version>
-    <org.projectlombok.version>1.18.38</org.projectlombok.version>
+    <org.projectlombok.version>1.18.34</org.projectlombok.version>
     <jjwt.version>0.13.0</jjwt.version>
     <springdoc.version>3.0.1</springdoc.version>
     <uuid-creator.version>6.1.1</uuid-creator.version>
@@ -54,7 +54,7 @@
     <guava.version>33.5.0-jre</guava.version>
     <fastjson2.version>2.0.58</fastjson2.version>
     <rabbitmq.version>5.14.2</rabbitmq.version>
-    <spring-boot.version>4.0.0</spring-boot.version>
+    <spring-boot.version>4.1.1</spring-boot.version>
   </properties>
 
 <dependencyManagement>
@@ -241,6 +241,7 @@
           <groupId>org.projectlombok</groupId>
           <artifactId>lombok</artifactId>
           <version>${org.projectlombok.version}</version>
+          <scope>provided</scope>
       </dependency>
   </dependencies>
 

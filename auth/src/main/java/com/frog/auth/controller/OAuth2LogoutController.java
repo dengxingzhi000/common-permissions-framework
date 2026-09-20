@@ -1,85 +1,76 @@
 package com.frog.auth.controller;
 
+import com.frog.auth.service.IOAuth2LogoutService;
+import com.frog.common.log.annotation.AuditLog;
 import com.frog.common.response.ApiResults;
-import com.frog.common.security.util.JwtUtils;
+import com.frog.common.security.util.HttpServletRequestUtils;
+import com.frog.common.web.domain.SecurityUser;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
 /**
  * OAuth2 登出控制器
- * 提供 OAuth2 授权撤销功能
  *
- * @author Deng
- * @since 2025-11-10
- * @version 1.0
+ * <p>两个职责分离的端点:</p>
+ * <ul>
+ *   <li>{@code POST /oauth2/logout} - 单客户端撤销,需已登录</li>
+ *   <li>{@code POST /oauth2/logout/all} - 全局撤销,需 {@code oauth2:logout:global} 权限</li>
+ * </ul>
+ *
+ * @since 2025-11-10 (refactored 2026-09-19)
  */
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/oauth2")
 @RequiredArgsConstructor
-@Tag(
-        name = "OAuth2 登出",
-        description = "OAuth2 授权撤销管理"
-)
+@Tag(name = "OAuth2 登出", description = "OAuth2 授权撤销管理")
 public class OAuth2LogoutController {
-    private static final String BEARER_PREFIX = "Bearer ";
 
-    private final OAuth2AuthorizationService authorizationService;
-    private final JwtUtils jwtUtils;
+    private final IOAuth2LogoutService oauth2LogoutService;
+    private final HttpServletRequestUtils httpServletRequestUtils;
 
     @PostMapping("/logout")
     @PreAuthorize("isAuthenticated()")
-    @Operation(
-            summary = "OAuth2 登出",
-            description = "撤销 OAuth2 授权，支持单客户端撤销或全局登出"
-    )
-    public ApiResults<Void> logout(
-            @Parameter(description = "Bearer Token", required = true)
-            @RequestHeader("Authorization") String authHeader,
-            @Parameter(description = "客户端 ID（可选，不传则全局登出）")
-            @RequestParam(required = false) String clientId) {
+    @Operation(summary = "OAuth2 单客户端撤销", description = "撤销当前用户在该客户端的 OAuth2 授权")
+    public ApiResults<Void> revokeByClient(
+            HttpServletRequest request,
+            @RequestParam("clientId") @NotBlank(message = "clientId 不能为空") String clientId,
+            @AuthenticationPrincipal SecurityUser caller) {
 
-        // 验证并解析 Token
-        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith(BEARER_PREFIX)) {
-            log.warn("Invalid authorization header format");
-            return ApiResults.fail(400, "Invalid authorization header");
-        }
-
-        String accessToken = authHeader.substring(BEARER_PREFIX.length());
+        String accessToken = httpServletRequestUtils.getTokenFromRequest(request);
         if (!StringUtils.hasText(accessToken)) {
-            log.warn("Empty access token");
-            return ApiResults.fail(400, "Empty access token");
+            return ApiResults.fail(400, "Authorization 头格式无效");
         }
 
-        UUID userId = jwtUtils.getUserIdFromToken(accessToken);
-
-        if (StringUtils.hasText(clientId)) {
-            // 撤销特定客户端的授权
-            OAuth2Authorization authorization =
-                    authorizationService.findByToken(accessToken, OAuth2TokenType.ACCESS_TOKEN);
-            if (authorization != null) {
-                authorizationService.remove(authorization);
-                log.info("OAuth2 logout: revoked authorization for userId={} clientId={}", userId, clientId);
-            } else {
-                log.warn("OAuth2 logout: authorization not found for userId={} clientId={}", userId, clientId);
-            }
-        } else {
-            // 撤销所有授权(全局登出)
-            jwtUtils.revokeAllUserTokens(userId);
-            log.info("OAuth2 global logout: revoked all tokens for userId={}", userId);
-        }
-
+        oauth2LogoutService.revokeByClient(accessToken, clientId, caller.getUserId());
         return ApiResults.success();
+    }
+
+    @PostMapping("/logout/all")
+    @PreAuthorize("hasAuthority('oauth2:logout:global')")
+    @AuditLog(operation = "OAuth2 全局登出", businessType = "USER", riskLevel = 3)
+    @Operation(summary = "OAuth2 全局登出", description = "撤销指定用户的所有 OAuth2 授权(需 oauth2:logout:global 权限)")
+    public ApiResults<Integer> revokeGlobal(
+            @RequestParam("userId") UUID userId,
+            @RequestParam("reason") @NotBlank(message = "reason 不能为空") String reason,
+            @AuthenticationPrincipal SecurityUser caller) {
+
+        int removed = oauth2LogoutService.revokeGlobal(userId, reason, caller.getUsername());
+        return ApiResults.success(removed);
     }
 }

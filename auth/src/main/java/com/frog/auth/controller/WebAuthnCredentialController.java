@@ -4,6 +4,7 @@ import com.frog.auth.domain.dto.WebauthnAuthenticationRequest;
 import com.frog.auth.domain.dto.WebauthnCredentialDTO;
 import com.frog.auth.domain.dto.WebauthnRegistrationRequest;
 import com.frog.auth.service.IWebauthnCredentialService;
+import com.frog.auth.webauthn.WebAuthnConfig;
 import com.frog.common.dto.auth.TokenUpgradeResponse;
 import com.frog.common.dto.auth.WebAuthnChallengeResponse;
 import com.frog.common.dto.auth.WebAuthnRegisterChallengeResponse;
@@ -51,7 +52,7 @@ public class WebAuthnCredentialController {
 
     private final IWebauthnCredentialService credentialService;
     private final HttpServletRequestUtils httpServletRequestUtils;
-    private final com.frog.auth.webauthn.WebAuthnConfig webAuthnConfig;
+    private final WebAuthnConfig webAuthnConfig;
 
     @PostMapping("/register/challenge")
     @PreAuthorize("isAuthenticated()")

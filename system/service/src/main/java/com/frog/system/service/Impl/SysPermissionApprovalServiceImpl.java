@@ -12,6 +12,7 @@ import com.frog.system.domain.entity.SysUser;
 import com.frog.system.mapper.SysPermissionApprovalMapper;
 import com.frog.system.service.CrossDatabaseQueryService;
 import com.frog.system.service.ISysPermissionApprovalService;
+import com.frog.system.service.ISysUserPermissionService;
 import com.frog.system.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class SysPermissionApprovalServiceImpl
     private final SysPermissionApprovalMapper approvalMapper;
     private final NotificationService notificationService;
     private final CrossDatabaseQueryService crossDatabaseQueryService;
+    private final ISysUserPermissionService sysUserPermissionService;
 
     /** 系统管理员角色编码 */
     private static final String ROLE_ADMIN = "ROLE_ADMIN";
@@ -206,9 +208,18 @@ public class SysPermissionApprovalServiceImpl
                                 log.info("Permanent roles granted: userId={}, roleIds={}", targetUserId, roleIds);
                             });
 
-            case 2 -> // 权限申请
-                    // TODO: 实现直接权限授予逻辑（如果需要）
-                    log.debug("Direct permission grant not implemented yet");
+            case 2 -> { // 权限申请 — 直接权限授予(落地 sys_user_permission)
+                if (approval.getPermissionIds() == null || approval.getPermissionIds().length == 0) {
+                    log.debug("Type=2 approval has no permissionIds, skipping grant: id={}", approval.getId());
+                    break;
+                }
+                Set<UUID> permIds = Arrays.stream(approval.getPermissionIds())
+                        .collect(Collectors.toSet());
+                sysUserPermissionService.grant(targetUserId, permIds, currentUserId,
+                        "approval: " + approval.getId());
+                log.info("Direct permissions granted via approval: approvalId={}, targetUser={}, permIds={}",
+                        approval.getId(), targetUserId, permIds);
+            }
 
             case 3 -> // 临时授权（带过期时间）
                     Optional.ofNullable(approval.getRoleIds())

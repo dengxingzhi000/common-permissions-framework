@@ -2,6 +2,7 @@ package com.frog.system.evaluator;
 
 import com.frog.common.web.domain.SecurityUser;
 import com.frog.system.service.ISysPermissionService;
+import com.frog.system.service.ISysUserPermissionService;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,11 @@ import java.io.Serializable;
 @Slf4j
 public class CustomPermissionEvaluator implements PermissionEvaluator {
     private final ISysPermissionService permissionService;
+    private final ISysUserPermissionService userPermissionService;
 
     /**
-     * 判断用户是否有指定权限
+     * 判断用户是否有指定权限。
+     * 检查两条路径：(1) 角色继承的权限；(2) 直接授予的权限 (sys_user_permission,审批 type=2)。
      */
     @Override
     public boolean hasPermission(@NonNull Authentication authentication, @NonNull Object targetDomainObject,
@@ -35,14 +38,14 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         }
 
         String permissionCode = permission.toString();
+        boolean viaRole = permissionService.hasPermission(user.getUserId(), permissionCode);
+        boolean viaDirect = userPermissionService.findEffectiveCodes(user.getUserId())
+                .contains(permissionCode);
 
-        // 检查用户是否有该权限
-        boolean hasPermission = permissionService.hasPermission(user.getUserId(), permissionCode);
+        log.debug("Permission check - User: {}, Permission: {}, viaRole={}, viaDirect={}",
+                user.getUsername(), permissionCode, viaRole, viaDirect);
 
-        log.debug("Permission check - User: {}, Permission: {}, Result: {}",
-                user.getUsername(), permissionCode, hasPermission);
-
-        return hasPermission;
+        return viaRole || viaDirect;
     }
 
     /**
@@ -66,4 +69,3 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         return hasPermission;
     }
 }
-
