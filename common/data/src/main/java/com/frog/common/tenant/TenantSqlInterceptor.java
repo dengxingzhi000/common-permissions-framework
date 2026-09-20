@@ -171,8 +171,9 @@ public class TenantSqlInterceptor implements Interceptor {
 
         if (whereIdx >= 0) {
             return sql.substring(0, whereIdx + " where ".length())
-                    + "(" + clause + ") AND "
-                    + sql.substring(whereIdx + " where ".length());
+                    + "(" + clause + ") AND ("
+                    + sql.substring(whereIdx + " where ".length())
+                    + ")";
         }
         // Skip trailing semicolon, then append WHERE
         String trimmed = sql.endsWith(";") ? sql.substring(0, sql.length() - 1) : sql;
