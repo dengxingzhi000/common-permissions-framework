@@ -4,18 +4,27 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.frog.system.service.Impl.SysRegisteredClientServiceImpl;
 import com.frog.system.service.ISysPermissionService;
 import com.frog.system.service.ISysUserService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SysPermissionController.class)
+@WebMvcTest(
+    controllers = SysPermissionController.class,
+    excludeFilters = @ComponentScan.Filter(
+        type = FilterType.ASSIGNABLE_TYPE,
+        classes = SysRegisteredClientServiceImpl.class
+    )
+)
 @Import(SysPermissionControllerAuthorizationTest.TestMethodSecurityConfig.class)
 class SysPermissionControllerAuthorizationTest {
 
