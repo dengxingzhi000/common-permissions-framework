@@ -1,4 +1,4 @@
-package com.frog.sdk.authz.invalidate;
+package com.frog.sdk.api.authz;
 
 import java.util.Set;
 

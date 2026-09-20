@@ -1,4 +1,4 @@
-package com.frog.sdk.authz.invalidate;
+package com.frog.sdk.api.authz;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -22,22 +22,10 @@ import java.util.UUID;
  */
 public record InvalidationEvent(
         InvalidationType type,
+        String subjectType,
         UUID subjectId,
         UUID appId,
         UUID tenantId,
         String resourceType,
         Instant timestamp) {
-
-    public enum InvalidationType {
-        /** A subject's own state changed (e.g. user disabled). */
-        SUBJECT,
-        /** A direct grant was added or revoked. */
-        GRANT,
-        /** A user↔role link was added or removed. */
-        ROLE,
-        /** A role↔permission link was added or removed. */
-        PERMISSION,
-        /** Nuclear option — invalidate every cache entry. */
-        ALL
-    }
 }

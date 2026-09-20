@@ -1,4 +1,4 @@
-package com.frog.sdk.authz;
+package com.frog.sdk.api.authz;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -13,6 +13,7 @@
         <module>common</module>
         <module>common/core</module>
         <module>common/security-api</module>
+        <module>common/sdk-api</module>
         <module>common/monitoring</module>
         <module>common/web/securityCore</module>
         <module>common/data</module>
