@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -52,6 +53,12 @@ public class SecurityUser implements UserDetails {
     private Set<String> permissions = Collections.emptySet();
     @com.fasterxml.jackson.annotation.JsonIgnore
     private String twoFactorSecret;
+
+    // Session / device / auth-method context
+    private String deviceId;
+    private String ipAddress;
+    @Builder.Default
+    private List<String> amr = Collections.emptyList();
 
     // 安全相关字段
     private Boolean twoFactorEnabled;

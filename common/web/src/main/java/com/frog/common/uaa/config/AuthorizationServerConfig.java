@@ -259,10 +259,14 @@ public class AuthorizationServerConfig {
             Authentication principal = context.getPrincipal();
             if (principal != null && principal.getPrincipal() instanceof SecurityUser user) {
                 context.getClaims().claims(claims -> {
+                    // 原 JwtUtils 全部 claim 字段
                     claims.put("userId", String.valueOf(user.getUserId()));
                     claims.put("deptId", String.valueOf(user.getDeptId()));
                     claims.put("roles", user.getRoles());
                     claims.put("permissions", user.getPermissions());
+                    claims.put("deviceId", user.getDeviceId());
+                    claims.put("ipAddress", user.getIpAddress());
+                    claims.put("amr", user.getAmr());
                 });
             }
         };
