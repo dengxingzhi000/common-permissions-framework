@@ -1,0 +1,36 @@
+# Phase 2 — Kafka topic suggestion for authz cache invalidation
+#
+# Operator: add the block below to Nacos `common.yaml` under
+#   spring.kafka.consumer.topics  (for the SDK consumers)
+# and create the topic via your Kafka admin tool or the platform's
+# KafkaProvisioner with the partition/replication/reention values shown.
+#
+# The authz service (`system/service`) publishes InvalidationEvent
+# (com.frog.sdk.authz.invalidate.InvalidationEvent) to this topic
+# whenever grant / user-role / role-permission / user-state changes occur.
+# SDK clients (`authz-sdk`) consume it for sub-second cache invalidation.
+
+spring:
+  kafka:
+    consumer:
+      topics:
+        authz.invalidations:
+          group-id: authz-sdk-${spring.application.name:default}
+          auto-offset-reset: latest
+
+# Topic creation parameters (apply via Kafka admin / topic provisioner)
+authz:
+  invalidations:
+    topic: authz.invalidations
+    partitions: 3
+    replication-factor: 3
+    retention-ms: 86400000   # 24h
+    cleanup.policy: delete
+
+# Optional: SDK-side cache TTL stays as a safety net even with push invalidation
+# (recommended: 60s — long enough to amortise cache misses, short enough to bound
+# staleness if push delivery is lost).
+authz:
+  sdk:
+    cache-ttl: 60s
+    cache-max-size: 100000
