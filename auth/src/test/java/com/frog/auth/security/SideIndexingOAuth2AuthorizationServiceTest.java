@@ -115,6 +115,18 @@ class SideIndexingOAuth2AuthorizationServiceTest {
     }
 
     @Test
+    void save_jwtParseFails_skipsIndexUpdate() {
+        OAuth2Authorization auth = authWithAccessToken("auth-1", "bad.jwt.value");
+        when(jwtUtils.getUserIdFromToken("bad.jwt.value"))
+                .thenThrow(new IllegalArgumentException("invalid JWT"));
+
+        service.save(auth);
+
+        verify(delegate).save(auth);
+        verify(redisTemplate, never()).opsForSet();
+    }
+
+    @Test
     void findByToken_andFindById_passThrough() {
         OAuth2Authorization auth = authWithAccessToken("auth-1", "jwt.token.value");
         when(delegate.findByToken("t", org.springframework.security.oauth2.server.authorization.OAuth2TokenType.ACCESS_TOKEN))
