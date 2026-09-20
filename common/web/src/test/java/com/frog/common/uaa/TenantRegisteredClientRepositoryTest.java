@@ -125,7 +125,7 @@ class TenantRegisteredClientRepositoryTest {
     @Test
     @DisplayName("save — throws UnsupportedOperationException (Phase 1.4 read-only)")
     void save_unsupported() {
-        assertThatThrownBy(() -> repository.save(any()))
+        assertThatThrownBy(() -> repository.save(null))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("Phase 1.4");
     }
