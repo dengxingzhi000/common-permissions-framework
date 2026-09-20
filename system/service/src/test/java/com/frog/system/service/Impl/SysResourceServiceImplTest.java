@@ -117,7 +117,7 @@ class SysResourceServiceImplTest {
         assertThatThrownBy(() -> resourceService.addResource(input))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("租户ID");
-        verify(resourceMapper, never()).insert(any());
+        verify(resourceMapper, never()).insert(any(SysResource.class));
     }
 
     @Test
@@ -132,7 +132,7 @@ class SysResourceServiceImplTest {
         assertThatThrownBy(() -> resourceService.addResource(input))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("应用ID");
-        verify(resourceMapper, never()).insert(any());
+        verify(resourceMapper, never()).insert(any(SysResource.class));
     }
 
     @Test
@@ -147,7 +147,7 @@ class SysResourceServiceImplTest {
         assertThatThrownBy(() -> resourceService.addResource(input))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("资源编码");
-        verify(resourceMapper, never()).insert(any());
+        verify(resourceMapper, never()).insert(any(SysResource.class));
     }
 
     @Test
@@ -162,7 +162,7 @@ class SysResourceServiceImplTest {
         assertThatThrownBy(() -> resourceService.addResource(input))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("资源类型");
-        verify(resourceMapper, never()).insert(any());
+        verify(resourceMapper, never()).insert(any(SysResource.class));
     }
 
     @Test
@@ -181,7 +181,7 @@ class SysResourceServiceImplTest {
         assertThatThrownBy(() -> resourceService.addResource(input))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("资源编码已存在");
-        verify(resourceMapper, never()).insert(any());
+        verify(resourceMapper, never()).insert(any(SysResource.class));
     }
 
     @Test

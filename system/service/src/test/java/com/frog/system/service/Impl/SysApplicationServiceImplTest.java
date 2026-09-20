@@ -92,7 +92,7 @@ class SysApplicationServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("租户ID");
 
-        verify(applicationMapper, never()).insert(any());
+        verify(applicationMapper, never()).insert(any(SysApplication.class));
     }
 
     @Test
@@ -108,7 +108,7 @@ class SysApplicationServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("应用编码已存在");
 
-        verify(applicationMapper, never()).insert(any());
+        verify(applicationMapper, never()).insert(any(SysApplication.class));
     }
 
     @Test

@@ -107,7 +107,7 @@ class SysRegisteredClientServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("租户ID");
 
-        verify(clientMapper, never()).insert(any());
+        verify(clientMapper, never()).insert(any(SysRegisteredClient.class));
     }
 
     @Test
@@ -121,7 +121,7 @@ class SysRegisteredClientServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("client_id");
 
-        verify(clientMapper, never()).insert(any());
+        verify(clientMapper, never()).insert(any(SysRegisteredClient.class));
     }
 
     @Test
@@ -138,7 +138,7 @@ class SysRegisteredClientServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("已存在");
 
-        verify(clientMapper, never()).insert(any());
+        verify(clientMapper, never()).insert(any(SysRegisteredClient.class));
     }
 
     @Test
