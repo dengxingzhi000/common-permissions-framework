@@ -48,6 +48,18 @@
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- Spring Kafka — Phase 2 push invalidation (programmatic consumer in KafkaInvalidationSubscriber) -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- Spring WebSocket — Phase 2 push invalidation (StandardWebSocketClient in WebSocketInvalidationSubscriber) -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-websocket</artifactId>
+        </dependency>
+
         <!-- Annotations (Nullable, etc.) -->
         <dependency>
             <groupId>org.jspecify</groupId>
