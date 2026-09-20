@@ -7,6 +7,7 @@ import com.frog.system.service.ISysUserPermissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +28,10 @@ public class SysUserPermissionServiceImpl implements ISysUserPermissionService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "userPermissionCodes", key = "#userId")
-    @CacheEvict(value = "userPermissions", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "userPermissionCodes", key = "#userId"),
+            @CacheEvict(value = "userPermissions", allEntries = true)
+    })
     public void grant(UUID userId, Set<UUID> permissionIds, UUID grantedBy, String reason) {
         if (permissionIds == null || permissionIds.isEmpty()) {
             return;
@@ -47,8 +50,10 @@ public class SysUserPermissionServiceImpl implements ISysUserPermissionService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "userPermissionCodes", key = "#userId")
-    @CacheEvict(value = "userPermissions", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "userPermissionCodes", key = "#userId"),
+            @CacheEvict(value = "userPermissions", allEntries = true)
+    })
     public void revoke(UUID userId, Set<UUID> permissionIds) {
         if (permissionIds == null || permissionIds.isEmpty()) {
             return;
