@@ -5,7 +5,8 @@ import com.frog.sdk.api.authz.InvalidationSubscriber;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.frog.sdk.authz.LocalAuthzClient;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -37,8 +38,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Deng
  * @since 2026-09-20
  */
-@Slf4j
 public class WebSocketInvalidationSubscriber implements InvalidationSubscriber {
+
+    private static final Logger log = LoggerFactory.getLogger(WebSocketInvalidationSubscriber.class);
 
     public static final String DEFAULT_PATH = "/v1/events/permissions";
     public static final long MAX_RECONNECT_DELAY_MS = 30_000L;
@@ -132,11 +134,10 @@ public class WebSocketInvalidationSubscriber implements InvalidationSubscriber {
         WebSocketClientHandler wsHandler = new WebSocketClientHandler();
         try {
             log.info("Connecting to WebSocket: {}", webSocketUrl);
-            if (authHeaders.isEmpty()) {
-                client.execute(wsHandler, null, uri).get();
-            } else {
-                client.execute(wsHandler, authHeaders, uri).get();
-            }
+            org.springframework.web.socket.WebSocketHttpHeaders headers =
+                    new org.springframework.web.socket.WebSocketHttpHeaders();
+            authHeaders.forEach(headers::set);
+            client.execute(wsHandler, headers, uri).get();
         } catch (Exception ex) {
             log.warn("WebSocket connection to {} failed: {}", webSocketUrl, ex.getMessage());
             scheduleReconnect();

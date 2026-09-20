@@ -1,8 +1,12 @@
 package com.frog.sdk.authz.invalidate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.frog.sdk.api.authz.InvalidationEvent;
+import com.frog.sdk.api.authz.InvalidationSubscriber;
+import com.frog.sdk.api.authz.InvalidationType;
 import com.frog.sdk.authz.LocalAuthzClient;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -41,8 +45,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Deng
  * @since 2026-09-20
  */
-@Slf4j
 public class KafkaInvalidationSubscriber implements InvalidationSubscriber {
+
+    private static final Logger log = LoggerFactory.getLogger(KafkaInvalidationSubscriber.class);
 
     public static final String DEFAULT_TOPIC = "authz.invalidations";
     public static final String DEFAULT_GROUP_PREFIX = "authz-sdk-";

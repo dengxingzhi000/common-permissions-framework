@@ -7,8 +7,9 @@ import com.frog.sdk.api.authz.InvalidationSubscriber;
 import com.frog.sdk.api.authz.InvalidationType;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.List;
@@ -43,8 +44,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @author Deng
  * @since 2026-09-20
  */
-@Slf4j
 public class LocalAuthzClient implements AuthzClient {
+
+    private static final Logger log = LoggerFactory.getLogger(LocalAuthzClient.class);
 
     private final HttpAuthzClient http;
     private final Cache<String, Decision> cache;
@@ -197,7 +199,7 @@ public class LocalAuthzClient implements AuthzClient {
      * avoid Java serialization (slow + insecure) and instead concatenate
      * keys/values with a separator that won't appear in practice.
      */
-    private static String contextFingerprint(@Nullable java.util.Map<String, Object> ctx) {
+    private static String contextFingerprint(java.util.@Nullable Map<String, Object> ctx) {
         if (ctx == null || ctx.isEmpty()) {
             return "";
         }
