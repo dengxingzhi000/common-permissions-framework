@@ -17,7 +17,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <sentinel.version>1.8.9</sentinel.version>
+        <sentinel.version>1.8.10</sentinel.version>
         <otel.version>1.56.0</otel.version>
     </properties>
 
