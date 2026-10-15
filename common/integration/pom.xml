@@ -65,7 +65,7 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-trace</artifactId>
-            <version>1.56.0</version>
+            <version>1.63.0</version>
         </dependency>
 
         <dependency>
